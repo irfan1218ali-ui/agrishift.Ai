@@ -3,3 +3,19 @@ target-version = "py311"
 
 [lint]
 select = ["E4", "E7", "E9", "F"]
+
+# CLI modules add the repository root to sys.path before importing project packages.
+[lint.per-file-ignores]
+"geospatial/climate/summarize_power.py" = ["E402"]
+"geospatial/landsat/process_landsat.py" = ["E402"]
+"geospatial/rainfall/summarize_gpm.py" = ["E402"]
+"geospatial/rainfall/validate_gpm.py" = ["E402"]
+"geospatial/soil-moisture/summarize_smap.py" = ["E402"]
+"geospatial/soil-moisture/validate_smap.py" = ["E402"]
+"geospatial/terrain/process_terrain.py" = ["E402"]
+"geospatial/terrain/validate_terrain.py" = ["E402"]
+"geospatial/weather/normalize_meteomatics.py" = ["E402"]
+"ml/clustering/evaluate.py" = ["E402"]
+"ml/clustering/predict.py" = ["E402"]
+"ml/clustering/train_kmeans.py" = ["E402"]
+"scripts/data/build_real_features.py" = ["E402"]

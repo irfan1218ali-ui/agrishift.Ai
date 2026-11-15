@@ -86,6 +86,7 @@ def _load_sample(samples_dir: Path, today: date, sample_file: Optional[Path] = N
         return None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
+        coordinates = None
         if isinstance(payload, dict) and isinstance(payload.get("data"), list):
             parsed = parse_meteomatics(payload)
             generated = payload.get("dateGenerated")
@@ -97,6 +98,13 @@ def _load_sample(samples_dir: Path, today: date, sample_file: Optional[Path] = N
             generated = payload.get("generated_at")
             valid_from = payload.get("valid_from")
             valid_until = payload.get("valid_until")
+        elif isinstance(payload, dict) and isinstance(payload.get("daily_forecast"), list):
+            metadata = payload.get("metadata") or {}
+            parsed = {"hourly": [], "days": payload["daily_forecast"]}
+            coordinates = metadata.get("coordinates")
+            generated = metadata.get("generated_at")
+            valid_from = metadata.get("valid_from")
+            valid_until = metadata.get("valid_until")
         else:
             return None
         if not parsed["days"]:
@@ -109,9 +117,10 @@ def _load_sample(samples_dir: Path, today: date, sample_file: Optional[Path] = N
             except ValueError:
                 pass
         expired = bool(end_dt and end_dt < now)
-        return {"available": True, "source": "meteomatics", "is_live": False, "is_sample": True,
+        return {"available": True, "status": "saved_sample", "source": "meteomatics",
+                "is_live": False, "is_sample": True,
                 "generated_at": generated, "valid_from": valid_from, "valid_until": valid_until,
-                "expired": expired, **parsed}
+                "expired": expired, "coordinates": coordinates, **parsed}
     except (OSError, ValueError, TypeError, KeyError):
         return None
 
@@ -131,17 +140,20 @@ def get_weather(lat: float, lon: float, *, user: str, password: str, samples_dir
                 hourly = data.get("hourly", [])
                 valid_from = hourly[0]["timestamp_utc"] if hourly else None
                 valid_until = hourly[-1]["timestamp_utc"] if hourly else None
-                info = {"available": True, "source": "meteomatics", "is_live": True, "is_sample": False,
+                info = {"available": True, "status": "live", "source": "meteomatics", "is_live": True, "is_sample": False,
                         "generated_at": now.isoformat().replace("+00:00", "Z"), "valid_from": valid_from,
-                        "valid_until": valid_until, "expired": False, **data}
+                        "valid_until": valid_until, "expired": False,
+                        "coordinates": {"latitude": lat, "longitude": lon}, **data}
                 if use_cache:
                     _cache[key] = (time.time(), info)
                 return info
         except Exception:
             pass
-    if demo_mode:
+    # A saved forecast is used only for explicit demo mode or an explicitly configured file.
+    if demo_mode or sample_file is not None:
         sample = _load_sample(samples_dir, now.date(), sample_file, now)
         if sample:
+            sample["coordinates"] = sample.get("coordinates") or {"latitude": lat, "longitude": lon}
             return sample
-    return {"available": False, "source": "meteomatics", "is_live": False, "is_sample": False,
+    return {"available": False, "status": "unavailable", "source": "meteomatics", "is_live": False, "is_sample": False,
             "expired": False, "hourly": [], "days": []}

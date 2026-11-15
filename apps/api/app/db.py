@@ -1,11 +1,13 @@
 """SQLite persistence for analysis requests and versioned result metadata."""
 from __future__ import annotations
 
+import csv
+import hashlib
 import json
 from functools import lru_cache
 from uuid import uuid4
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, MetaData, String, Table, Text, create_engine, select
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, MetaData, String, Table, Text, create_engine, inspect, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql import func
 
@@ -26,8 +28,10 @@ analysis_results = Table(
     "analysis_results", metadata,
     Column("id", String(36), primary_key=True),
     Column("request_id", String(36), ForeignKey("analysis_requests.id"), nullable=False, unique=True),
-    Column("feature_point_id", String(128)), Column("cluster_id", Integer), Column("cluster_label", String(128)),
-    Column("rotation_results_json", Text, nullable=False), Column("confidence_score", Integer),
+    Column("feature_point_id", String(128)), Column("distance_to_feature_point_m", Float),
+    Column("analysis_method", String(80)), Column("cluster_id", Integer), Column("cluster_label", String(128)),
+    Column("rotation_results_json", Text, nullable=False), Column("confidence_score", Float),
+    Column("confidence_dots", Integer), Column("limitations_json", Text),
     Column("status", String(32), nullable=False), Column("created_at", DateTime(timezone=True), server_default=func.now()),
 )
 dataset_metadata = Table(
@@ -43,7 +47,7 @@ model_runs = Table(
     Column("id", Integer, primary_key=True, autoincrement=True), Column("model_name", String(80), nullable=False),
     Column("model_version", String(80)), Column("feature_schema_version", String(80)),
     Column("training_timestamp", String(40)), Column("metrics_json", Text, nullable=False),
-    Column("artifact_path", String(512)),
+    Column("artifact_path", String(512)), Column("artifact_checksum", String(64)),
 )
 
 
@@ -61,7 +65,83 @@ def get_engine() -> Engine:
 
 
 def initialize(engine: Engine | None = None) -> None:
-    metadata.create_all(engine or get_engine())
+    engine = engine or get_engine()
+    metadata.create_all(engine)
+    # create_all does not add columns to an existing SQLite file; apply additive migrations.
+    if engine.dialect.name == "sqlite":
+        additions = {
+            "analysis_results": {
+                "distance_to_feature_point_m": "FLOAT",
+                "analysis_method": "VARCHAR(80)",
+                "confidence_dots": "INTEGER",
+                "limitations_json": "TEXT",
+            },
+            "model_runs": {"artifact_checksum": "VARCHAR(64)"},
+        }
+        with engine.begin() as connection:
+            inspector = inspect(engine)
+            for table_name, columns in additions.items():
+                existing = {item["name"] for item in inspector.get_columns(table_name)}
+                for name, sql_type in columns.items():
+                    if name not in existing:
+                        connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {name} {sql_type}"))
+    _seed_validated_metadata(engine)
+
+
+def _seed_validated_metadata(engine: Engine) -> None:
+    """Idempotently register catalog rows and the verified K-Means run, if present."""
+    root = get_settings().root
+    catalog = root / "data" / "catalog" / "datasets.csv"
+    if catalog.is_file():
+        with catalog.open(encoding="utf-8-sig", newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        with engine.begin() as connection:
+            for row in rows:
+                exists = connection.execute(select(dataset_metadata.c.id).where(
+                    dataset_metadata.c.provider == row.get("provider", ""),
+                    dataset_metadata.c.product == row.get("product", ""),
+                    dataset_metadata.c.version == row.get("version", ""),
+                )).first()
+                if exists:
+                    continue
+                period = row.get("test_date_range", "")
+                start, separator, end = period.partition(" to ")
+                connection.execute(dataset_metadata.insert().values(
+                    provider=row.get("provider") or "unknown", product=row.get("product") or "unknown",
+                    version=row.get("version"), observation_start=start or None,
+                    observation_end=(end if separator else start) or None,
+                    source_resolution=row.get("spatial_resolution"),
+                    validation_status=row.get("status"), checksum=None,
+                    metadata_json=json.dumps({key: row.get(key) for key in (
+                        "dataset_id", "mission_or_service", "variables", "temporal_resolution",
+                        "test_location", "limitations", "notes")}, ensure_ascii=False),
+                ))
+
+    artifacts = root / "ml" / "clustering" / "artifacts"
+    manifest_path = artifacts / "training_manifest.json"
+    metrics_path = artifacts / "metrics.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        artifact = artifacts / manifest["artifacts"]["kmeans"]["file"]
+        digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        if digest != manifest["artifacts"]["kmeans"]["sha256"]:
+            return
+        k = int(metrics["selected_k"])
+        version = f"kmeans-k{k}-{manifest.get('library_version', 'unknown')}"
+        model_name = manifest.get("model_name", "AgriShift Environmental K-Means")
+        with engine.begin() as connection:
+            exists = connection.execute(select(model_runs.c.id).where(
+                model_runs.c.model_name == model_name, model_runs.c.model_version == version)).first()
+            if not exists:
+                connection.execute(model_runs.insert().values(
+                    model_name=model_name, model_version=version,
+                    feature_schema_version=manifest.get("feature_schema_version", "1.0"),
+                    training_timestamp=None, metrics_json=json.dumps(metrics),
+                    artifact_path="ml/clustering/artifacts/kmeans.joblib", artifact_checksum=digest,
+                ))
+    except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+        return
 
 
 def save_analysis(request_data: dict, response: dict, engine: Engine | None = None) -> str:
@@ -81,10 +161,21 @@ def save_analysis(request_data: dict, response: dict, engine: Engine | None = No
         ))
         options = response.get("options", [])
         confidences = [o.get("confidence_score") for o in options if o.get("confidence_score") is not None]
+        feature_point = response.get("feature_point") or {}
+        field_context = response.get("field_context") or {}
+        cluster = field_context.get("cluster") or {}
+        conf = response.get("confidence") or {}
+        dots = conf.get("dots") if isinstance(conf, dict) else None
         conn.execute(analysis_results.insert().values(
             id=result_id, request_id=request_id, feature_point_id=response.get("feature_point_id"),
-            cluster_id=None, cluster_label=None, rotation_results_json=json.dumps(response, ensure_ascii=False),
-            confidence_score=max(confidences) if confidences else None, status=response.get("status", "unknown"),
+            distance_to_feature_point_m=feature_point.get("distance_m"),
+            analysis_method=response.get("analysis_method"),
+            cluster_id=cluster.get("cluster_id"), cluster_label=cluster.get("cluster_label"),
+            rotation_results_json=json.dumps(response, ensure_ascii=False),
+            confidence_score=conf.get("score") if isinstance(conf, dict) else (max(confidences) if confidences else None),
+            confidence_dots=dots.count("●") if isinstance(dots, str) else None,
+            limitations_json=json.dumps(response.get("limitations", []), ensure_ascii=False),
+            status=response.get("status", "unknown"),
         ))
     return request_id
 

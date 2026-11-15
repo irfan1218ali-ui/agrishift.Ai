@@ -54,10 +54,10 @@ class Settings:
     max_lat: float = 25.7
     min_lon: float = 68.1
     max_lon: float = 68.7
-    features_max_km: float = 5.0    # nearest features point must be within this distance
+    features_max_km: float = 2.0    # enforce the measured approximately 2 km point grid
     min_cloud_free: float = 0.5     # Landsat treated as unusable below this cloud-free fraction (unverified)
     default_satellite_window: str = "2025-09-01/2025-09-30"
-    default_landsat_date: str = "2025-09-22"
+    default_landsat_date: str = "2025-09-30"
 
 
 def get_settings() -> Settings:
@@ -70,7 +70,7 @@ def get_settings() -> Settings:
     else:
         real = root / "data" / "features" / "features.json"
         example = Path(env("FEATURES_EXAMPLE_FILE", str(root / "data" / "features" / "features.example.json")))
-        features = example if (demo and not real.exists()) else real
+        features = example if demo else real
     origins = [o.strip() for o in env(
         "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000"
     ).split(",") if o.strip()]
@@ -80,10 +80,13 @@ def get_settings() -> Settings:
     if power_csv is None:
         candidates = sorted((root / "data" / "api-samples" / "nasa-power").glob("POWER_Point_Daily_*.csv"))
         power_csv = candidates[0] if candidates else None
-    demo_weather_sample = root / "data" / "api-samples" / "meteomatics" / "demo_sample.example.json"
-    if not demo_weather_sample.is_file():
-        demo_weather_sample = root / "data" / "api-samples" / "meteomatics" / "json.json"
-    meteomatics_sample = Path(env("METEOMATICS_SAMPLE_FILE", str(demo_weather_sample)))
+    configured_weather_sample = env("METEOMATICS_SAMPLE_FILE", "").strip()
+    if configured_weather_sample:
+        meteomatics_sample = Path(configured_weather_sample)
+    elif demo:
+        meteomatics_sample = root / "data" / "api-samples" / "meteomatics" / "demo_sample.example.json"
+    else:
+        meteomatics_sample = None
     return Settings(
         root=root,
         demo_mode=demo,

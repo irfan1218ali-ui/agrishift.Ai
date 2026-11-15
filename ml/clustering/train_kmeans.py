@@ -12,6 +12,7 @@ from pathlib import Path
 import sys
 from typing import Any
 import joblib
+import sklearn
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.metrics import davies_bouldin_score, silhouette_score
@@ -23,6 +24,7 @@ if str(ROOT_DIR) not in sys.path:
 from ml.clustering.evaluate import evaluate_kmeans_models
 from ml.clustering.prepare_features import (
     CLUSTERING_FEATURES,
+    DEFAULT_FEATURE_TABLE,
     fit_scaler,
     load_and_validate_features,
 )
@@ -73,9 +75,10 @@ def train_clustering_pipeline(
     k: int = SELECTED_K,
     random_state: int = RANDOM_STATE,
     artifacts_dir: Path = ARTIFACTS_DIR,
+    csv_path: Path = DEFAULT_FEATURE_TABLE,
 ) -> dict[str, Any]:
     # 1. Load and validate features
-    df, X, meta = load_and_validate_features()
+    df, X, meta = load_and_validate_features(csv_path)
     scaler, X_scaled = fit_scaler(X)
 
     # 2. Evaluate comparative k models
@@ -155,7 +158,8 @@ def train_clustering_pipeline(
     manifest_payload = {
         "model_name": "AgriShift Environmental K-Means",
         "algorithm": "KMeans",
-        "library_version": f"scikit-learn=={joblib.__version__}",
+        "library_version": f"scikit-learn=={sklearn.__version__}",
+        "joblib_version": joblib.__version__,
         "features_used": CLUSTERING_FEATURES,
         "training_samples_count": len(df),
         "random_state": random_state,

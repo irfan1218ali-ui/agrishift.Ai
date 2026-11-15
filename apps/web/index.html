@@ -55,6 +55,7 @@ h2{font-size:1.45rem;margin:8px 0 14px;text-align:center}
 .badge{display:inline-block;background:#e0e7ff;border:2px solid #6366f1;border-radius:8px;padding:0 8px;font-size:.85rem;font-weight:700}
 .demo-banner{display:none;position:sticky;top:64px;z-index:4;background:#7c2d12;color:#fff;text-align:center;font-weight:800;padding:8px 12px}
 .demo-banner.on{display:block}
+.demo-banner.real{background:#166534}
 .spin{width:64px;height:64px;border:8px solid #cfe5d2;border-top-color:var(--g);border-radius:50%;margin:40px auto;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .fc{display:flex;gap:8px;justify-content:space-around;font-size:2.2rem;text-align:center}
@@ -418,13 +419,16 @@ async function fetchJson(url, opts, ms){
 }
 function setDataMode(mode){
   const banner = $("dataModeBanner");
-  const demo = String(mode||"").toUpperCase() === "DEMO";
-  banner.classList.toggle("on", demo);
-  banner.textContent = "DEMO DATA — NOT REAL ENVIRONMENTAL ANALYSIS";
+  const normalized = String(mode||"").toUpperCase();
+  const demo = normalized === "DEMO";
+  const real = normalized === "REAL";
+  banner.classList.add("on");
+  banner.classList.toggle("real", real);
+  banner.textContent = demo ? "DEMO DATA — NOT REAL ENVIRONMENTAL ANALYSIS" : (real ? "REAL DATA — VALIDATED HYDERABAD PILOT FEATURES" : "DATA STATUS UNAVAILABLE");
 }
 async function checkDataMode(){
   try{ const health = await fetchJson(`${CONFIG.API_BASE}/api/v1/health`, null, 5000); setDataMode(health.data_mode); }
-  catch(e){ setDataMode("REAL"); }
+  catch(e){ setDataMode("UNKNOWN"); }
 }
 function payload(){
   return {lat:S.lat, lon:S.lon, radius_m:CONFIG.RADIUS_M, current_crop:S.currentCrop, previous_crop:"unknown",
@@ -441,6 +445,9 @@ async function analyze(){
     if(res.status === "ok" && Array.isArray(res.options) && res.options.length){ renderResults(res); go("s6"); }
     else if(res.status === "not_applicable" && SPECIAL_IDS.includes(res.reason_id)){ $("spMsg").textContent = t(res.reason_id); show("sp"); playSeq([res.reason_id]); }
     else if(res.status === "not_applicable" && res.reason_id === "out_of_area"){ showMsg(t("out_of_area"), false); }
+    else if(res.status === "not_applicable" && res.reason_id === "nearest_point_too_far"){
+      showMsg("The nearest validated environmental analysis point is more than 2 km away.", false);
+    }
     else if(res.status === "insufficient_data"){ showMsg(t(res.reason_id) || t("no_data_001"), false); }
     else showMsg(t("err_data"), true);
   } catch(e){ showMsg(t("err_data"), true); }
@@ -487,7 +494,7 @@ function cardHtml(o, idx){
     ${warnings.length ? `<div class="caution">⚠️ ${warnings.join(" ")}</div>` : ""}
     ${o.crop_verified === false ? `<div class="foot">🔬 ${t("expert_pending")}</div>` : ""}
     ${o.confidence_score !== undefined ? `<div class="foot">${t("confidence")}: ${o.confidence_score}/100 · ${t("score_not_yield")}</div>` : ""}
-    ${(o.expert_needed || (o.confidence_dots|0) <= 1) ? `<div class="expert">👨‍🌾 ${t("expert_must")}</div>` : ""}
+    ${(o.expert_review_required || o.expert_needed || (o.confidence_dots|0) <= 1) ? `<div class="expert">👨‍🌾 ${t("expert_must")}</div>` : ""}
     ${o.analysis_id ? `<div class="foot">${t("analysis_id")}: ${o.analysis_id}</div>` : ""}
     <div class="acts">
       <button class="big" data-act="listen" data-i="${idx}">🔊 ${t("btn_listen")}</button>
@@ -506,10 +513,13 @@ function fcHtml(w){
 }
 async function renderResults(res){
   setDataMode(res.data_mode);
-  const h = res.field_health || {};
+  const h = (res.field_context && res.field_context.vegetation_condition) || {};
   const hs = t(h.template_id);
   let html = "";
   if(res.data_mode === "DEMO" || res.is_demo) html += `<div style="text-align:center"><span class="badge">${t("mock_badge")}</span></div>`;
+  if(res.feature_point) html += `<div class="foot">Validated point ${res.feature_point.id||"—"} · ${res.feature_point.distance_m??"—"} m · ${res.feature_point.analysis_radius_m??150} m local summary</div>`;
+  if(res.field_context && res.field_context.cluster_label) html += `<div class="card"><h3>Environmental grouping</h3><b>${res.field_context.cluster_label}</b><p>${res.field_context.cluster_interpretation||""}</p><small>Environmental clustering, not a crop-health or disease diagnosis.</small></div>`;
+  if(res.confidence) html += `<div class="foot">Overall confidence: ${res.confidence.dots||"—"} (${res.confidence.score??"—"}/100). ${(res.confidence.reasons||[]).join(" ")}</div>`;
   if(hs) html += `<div class="card ${h.light||""}"><h3>${LIGHT_EMOJI[h.light]||""} ${hs}</h3></div>`;
   html += res.options.map(cardHtml).join("");
   html += `<div id="fcBox"></div>`;
@@ -558,7 +568,7 @@ async function setLayer(name){
   try{
     const catalog = await fetchJson(`${CONFIG.API_BASE}/api/v1/layers/metadata`, null, 5000);
     const meta = (catalog.layers && catalog.layers[name]) || catalog[name];
-    const bounds = meta && meta.bounds;
+    const bounds = (meta && meta.bounds) || catalog.bounds;
     const west = bounds && (bounds.west ?? bounds.w), south = bounds && (bounds.south ?? bounds.s);
     const east = bounds && (bounds.east ?? bounds.e), north = bounds && (bounds.north ?? bounds.n);
     if(![west,south,east,north].every(Number.isFinite)){ xNote("No validated geographic bounds are available for this layer."); return; }
@@ -581,12 +591,14 @@ async function renderExpert(){
   const w = await getWeather();
   const regional = await getRegionalContext();
   const snap = r && r.data_snapshot ? r.data_snapshot : null;
-  let html = `<h3>Data dates and analysis</h3>` + (snap && (snap.satellite_window || snap.landsat_date)
-    ? `<p>Satellite window: <b>${snap.satellite_window||"—"}</b> · Landsat scene: <b>${snap.landsat_date||"—"}</b></p>`
+  let html = `<h3>Data dates and analysis</h3>` + (snap && (snap.scene || snap.landsat_date)
+    ? `<p>Scene: <b>${snap.scene||"—"}</b> · Landsat 9 acquisition: <b>${snap.landsat_date||"—"}</b></p>`
     : `<p>No validated satellite feature snapshot is available.</p>`);
   if(r && r.analysis_id) html += `<p>Analysis ID: <b>${r.analysis_id}</b></p>`;
-  html += `<h3>Environmental condition zone</h3>`;
+  html += `<h3>Vegetation condition and environmental grouping</h3>`;
   html += r && r.field_context ? `<p>${r.field_context.cluster_label||"Clustering unavailable"}</p><p>${r.field_context.cluster_interpretation||"No environmental cluster was assigned."}</p>` : `<p>No environmental cluster was assigned.</p>`;
+  if(r && r.feature_point) html += `<p>Nearest precomputed point: <b>${r.feature_point.id||"—"}</b> · ${r.feature_point.distance_m??"—"} m · local summary radius ${r.feature_point.analysis_radius_m??150} m · grid spacing ${r.feature_point.grid_spacing_m??"—"} m</p>`;
+  html += `<p>Environmental grouping, not a crop-disease diagnosis.</p>`;
   html += `<h3>Regional context (not used in scoring)</h3>`;
   const context = r && r.data_mode === "DEMO" && r.regional_context ? r.regional_context : (regional.regional_context||{});
   const sm = context.soil_moisture, rf = context.rainfall;
@@ -608,7 +620,7 @@ async function renderExpert(){
   const rows = Object.entries(sources);
   html += rows.length ? `<table><tr><th>Source</th><th>Metadata</th></tr>${rows.map(([key,val])=>`<tr><td>${key}</td><td>${JSON.stringify(val)}</td></tr>`).join("")}</table>` : `<p>No per-feature source metadata is available.</p>`;
   html += `<h3>Analysis limitations</h3><ul>${(r && r.limitations || ["No analyzed result is available yet."]).map(item=>`<li>${item}</li>`).join("")}</ul>`;
-  html += `<p>Rotation recommendations use transparent rules. K-Means is reserved for environmental-condition clustering and has not been trained without sufficient validated spatial observations. Satellite indicators are not disease diagnoses.</p>`;
+  html += `<p>Rotation recommendations use transparent rules. K-Means groups environmental conditions only; it does not diagnose crop health or disease. Satellite indicators require local inspection.</p>`;
   $("xinfo").innerHTML = html;
 }
 function openExpert(){

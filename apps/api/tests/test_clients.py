@@ -162,7 +162,7 @@ def test_normalize_rejects_bad_values():
 
 def test_feature_store_nearest(tmp_path):
     p = tmp_path / "f.json"
-    p.write_text(json.dumps({"points": [
+    p.write_text(json.dumps({"meta": {"data_mode": "real", "feature_schema_version": "1.0"}, "points": [
         {"id": "a", "lat": 25.39, "lon": 68.37, "features": {}},
         {"id": "b", "lat": 25.50, "lon": 68.50, "features": {}}]}))
     st = FeatureStore(p, max_km=5)

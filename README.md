@@ -4,15 +4,14 @@ AgriShift AI is a multilingual crop-rotation decision-support prototype for the 
 
 ## Current project status
 
-- The original ZIP source is preserved and documented in [`docs/archive/agrishift-zip-code-documentation.md`](docs/archive/agrishift-zip-code-documentation.md).
-- The FastAPI API, static farmer interface, rotation engine, SQLite persistence, source manifests, SRTM slope overlay, regional SMAP/GPM summary, and guarded feature/K-Means utilities are present.
-- The requested Landsat scene bundle is missing its actual raster and MTL files. No real `features.json` can be produced and no K-Means model or metrics have been created.
-- The integrated demo can run in explicit demo mode. It uses the supplied, clearly marked example feature row and a saved Meteomatics response. The page displays `DEMO DATA — NOT REAL ENVIRONMENTAL ANALYSIS` persistently.
-- Release verdict: **NOT READY for real environmental recommendations** until the Landsat scene is supplied and the real feature workflow, model, and acceptance scenarios pass.
+- The Step 2A real-data branch is merged into `hackathon/step-2b-integration`.
+- The API loads 149 validated Hyderabad pilot feature points, saved environmental K-Means artifacts, four map overlays, SMAP/GPM summaries, and normalized Meteomatics weather.
+- The farmer UI and API run together on FastAPI. Successful analyses are stored in SQLite and can be retrieved by analysis ID.
+- The interface labels real and demo modes. Demo example data is used only when `DEMO_MODE=true` is explicitly selected.
 
-See [`README_FINAL_DEMO.md`](README_FINAL_DEMO.md), [`docs/data/source-inventory.md`](docs/data/source-inventory.md), and [`docs/audit/test-results-step-2.md`](docs/audit/test-results-step-2.md) for setup, results, and known blockers.
+See [`docs/data/`](docs/data/) and [`docs/demo/known-limitations.md`](docs/demo/known-limitations.md) for source details and limitations.
 
-## Run the local demo
+## Run the local MVP
 
 Use Python 3.11. From the repository root in PowerShell:
 
@@ -20,13 +19,10 @@ Use Python 3.11. From the repository root in PowerShell:
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.lock.txt
-python scripts\data\create_sanitized_weather_sample.py
 python scripts\start_demo.py
 ```
 
-Open `http://127.0.0.1:8000`. `scripts/start_demo.py` explicitly selects demo mode and the supplied example features unless `DEMO_MODE` or `FEATURES_FILE` was explicitly set in the shell. Never present this demo as a real environmental analysis.
-
-To start the API in real mode, set `DEMO_MODE=false` and use `uvicorn app.main:app --app-dir apps/api --host 127.0.0.1 --port 8000`. Until `data/features/features.json` has been generated from the real Landsat scene, the analysis endpoint correctly returns `insufficient_data`.
+Open `http://127.0.0.1:8000`. The launcher uses real features by default and serves the frontend and API from one local server. The saved weather forecast is always labelled as a sample. Optional provider credentials enable live weather.
 
 ## Checks
 
@@ -41,9 +37,9 @@ python -m compileall -q -x '\\.venv' .
 - `apps/api/app/`: FastAPI routes, input schemas, feature reading, NASA POWER and Meteomatics adapters, regional context, and SQLite persistence.
 - `apps/web/index.html`: existing multilingual farmer and expert views, connected to the API.
 - `services/rotation-engine/`: existing crop-rule loading and three-strategy rotation logic.
-- `scripts/data/`: source discovery, validation, manifests, regional summary, terrain overlay, and saved-sample sanitation.
-- `scripts/build_real_features.py`: Landsat/SRTM/POWER/SMAP/GPM point builder; fails closed if required Landsat assets are absent.
-- `ml/clustering/`: real-row validation, K-Means training, evaluation, and prediction; no example-data fallback.
+- `scripts/data/`: source discovery, validation, manifests, regional summaries, terrain overlay, and weather products.
+- `scripts/start_demo.py`: starts the real-data MVP; explicit `DEMO_MODE=true` selects the labelled example mode.
+- `ml/clustering/`: K-Means training, evaluation, prediction, and runtime artifacts.
 - `data/manifests/`: checksummed source inventory without developer-specific absolute paths.
 - `docs/`: architecture, source inventory, API/database notes, audit, limitations, and demo guide.
 

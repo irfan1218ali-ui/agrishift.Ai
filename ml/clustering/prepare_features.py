@@ -44,13 +44,19 @@ def load_and_validate_features(
     if missing_cols:
         raise ValueError(f"Missing required feature columns: {missing_cols}")
 
-    # Drop any rows with NaN in features
-    clean_df = df.dropna(subset=features).copy()
+    # Keep only complete, finite observations at distinct spatial locations.
+    numeric = df[features].apply(pd.to_numeric, errors="coerce")
+    finite_mask = np.isfinite(numeric.to_numpy(dtype=float)).all(axis=1)
+    complete = df.loc[finite_mask].copy()
+    if {"lat", "lon"}.issubset(complete.columns):
+        complete = complete.drop_duplicates(subset=["lat", "lon"])
+    clean_df = complete.copy()
     valid_count = len(clean_df)
 
     if valid_count < MIN_SAMPLE_SIZE:
         raise ValueError(
-            f"Insufficient valid points ({valid_count}) for clustering. Minimum required is {MIN_SAMPLE_SIZE}."
+            f"Insufficient complete, finite, distinct spatial points ({valid_count}) for clustering. "
+            f"Minimum required is {MIN_SAMPLE_SIZE}."
         )
 
     # Check variance

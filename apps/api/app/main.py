@@ -17,17 +17,23 @@ from .schemas import AnalyzeRequest
 from . import service
 from . import db
 from . import regional_context
+from .ml.clustering import load_artifacts
 
 LAYER_NAMES = {"ndvi", "ndmi", "bsi", "slope"}
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.initialize()
+    try:
+        load_artifacts(_settings.root / "ml" / "clustering" / "artifacts")
+    except Exception:
+        # Health and non-ML analysis remain available when optional model files are absent.
+        pass
     yield
 
 
 app = FastAPI(title="AgriShift AI API", version="1.0.0",
-              description="Rule-based crop rotation options for the Hyderabad (Sindh) pilot. No trained ML model.",
+              description="Rule-based rotation options with neutral environmental clustering for the Hyderabad pilot.",
               lifespan=lifespan)
 
 _settings = get_settings()
@@ -77,8 +83,14 @@ def deps() -> service.Deps:
 @app.get("/api/v1/health")
 def health():
     d = deps()
+    try:
+        load_artifacts(d.settings.root / "ml" / "clustering" / "artifacts")
+        model_status = "available"
+    except Exception:
+        model_status = "unavailable"
     return {"status": "ok", "crops": len(d.crops), "features_available": d.store.available(),
             "demo_mode": d.settings.demo_mode, "data_mode": "DEMO" if d.settings.demo_mode else "REAL",
+            "environmental_clustering": model_status,
             "meteomatics_configured": bool(d.settings.meteomatics_user and d.settings.meteomatics_password)}
 
 
@@ -99,8 +111,7 @@ def crops():
 
 @app.get("/api/v1/context")
 def context():
-    return regional_context.get_regional_context(deps().settings.root / "data" / "processed" /
-                                                  "model-features" / "regional_context.json")
+    return regional_context.get_regional_context(deps().settings.root)
 
 
 @app.get("/api/v1/weather")
@@ -123,7 +134,7 @@ def layer(name: str):
     f = deps().settings.layers_dir / f"{name}.png"
     if not f.is_file():
         raise HTTPException(status_code=404, detail="layer not available")
-    return FileResponse(str(f), media_type="image/png")
+    return FileResponse(str(f), media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.get("/api/v1/layers/metadata")
@@ -132,7 +143,12 @@ def layer_metadata():
     if not path.is_file():
         raise HTTPException(status_code=404, detail="layer metadata not available")
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        metadata = json.loads(path.read_text(encoding="utf-8"))
+        bounds = metadata.get("bounds")
+        if isinstance(bounds, dict):
+            for info in (metadata.get("layers") or {}).values():
+                info.setdefault("bounds", bounds)
+        return metadata
     except (OSError, ValueError):
         raise HTTPException(status_code=404, detail="layer metadata is invalid")
 

@@ -12,31 +12,54 @@ DEFAULT_OUTPUT = ROOT.parent / "agrishift-ai-hackathon-final.zip"
 BLOCKED_DIRS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".ruff_cache",
                 ".mypy_cache", ".next", "node_modules", ".tmp-zip-review"}
 BLOCKED_SUFFIXES = {".tif", ".tiff", ".nc", ".nc4", ".h5", ".hdf", ".hdf5", ".grib",
-                    ".jp2", ".shp", ".shx", ".dbf", ".gpkg", ".parquet", ".joblib",
-                    ".pkl", ".pt", ".pth", ".onnx", ".sqlite", ".sqlite3", ".db", ".log"}
+                    ".jp2", ".shp", ".shx", ".dbf", ".gpkg", ".parquet", ".pkl", ".pt",
+                    ".pth", ".onnx", ".sqlite", ".sqlite3", ".db", ".log"}
+RUNTIME_MODELS = {
+    "ml/clustering/artifacts/scaler.joblib",
+    "ml/clustering/artifacts/kmeans.joblib",
+}
+RUNTIME_DATA = {
+    "data/features/features.json",
+    "data/processed/regional/smap_summary.json",
+    "data/processed/regional/gpm_summary.json",
+    "data/processed/weather/meteomatics_hourly.csv",
+    "data/processed/weather/meteomatics_daily.json",
+}
+PACKAGE_EXCLUDES = {
+    "agrishift.ico",
+    "start_agrishift.bat",
+    "scripts/create_desktop_shortcut.ps1",
+    "scripts/launch_desktop.py",
+}
 
 
 def include(relative: Path) -> bool:
     parts = relative.parts
     name = relative.name
+    normalized = relative.as_posix()
+    if normalized in PACKAGE_EXCLUDES:
+        return False
     if any(part in BLOCKED_DIRS for part in parts):
+        return False
+    if name.lower().endswith((".zip", ".zip.sha256")):
         return False
     if name == ".env" or (name.startswith(".env.") and name != ".env.example"):
         return False
     if Path(name).suffix.lower() in BLOCKED_SUFFIXES:
         return False
+    if Path(name).suffix.lower() == ".joblib" and normalized not in RUNTIME_MODELS:
+        return False
     if parts and parts[0] == "data":
-        normalized = relative.as_posix()
         if normalized.startswith(("data/raw/", "data/interim/", "data/model-ready/")):
             return normalized.endswith("README.md")
         if normalized.startswith("data/processed/"):
-            return normalized.endswith("README.md") or normalized == "data/processed/model-features/regional_context.json"
+            return normalized.endswith("README.md") or normalized in RUNTIME_DATA
         if normalized.startswith("data/api-samples/"):
             return normalized.endswith("README.md") or name.endswith(".example.json")
         if normalized.startswith("data/features/"):
-            return name in {"README.md", "features.example.json"}
+            return name in {"README.md", "features.example.json", "features.json"}
         if normalized.startswith("data/layers/"):
-            return name in {"README.md", "metadata.json", "slope.png"}
+            return name in {"README.md", "metadata.json", "ndvi.png", "ndmi.png", "bsi.png", "slope.png"}
         if normalized.startswith("data/manifests/"):
             return Path(name).suffix.lower() in {".csv", ".md"}
         return name == "README.md" and normalized == "data/README.md"
@@ -50,18 +73,28 @@ def collect_files() -> list[Path]:
 def validate_package(files: list[Path]) -> None:
     required = {
         "README.md", "README_FINAL_DEMO.md", ".env.example", "requirements.lock.txt",
-        "apps/api/app/main.py", "apps/web/index.html", "data/features/features.example.json",
+        "apps/api/app/main.py", "apps/web/index.html", "scripts/start_demo.py",
+        "data/features/features.json", "data/features/features.example.json",
+        "data/layers/ndvi.png", "data/layers/ndmi.png", "data/layers/bsi.png",
         "data/layers/slope.png", "data/layers/metadata.json",
-        "data/processed/model-features/regional_context.json",
-        "data/api-samples/meteomatics/demo_sample.example.json", "scripts/start_demo.py",
+        "data/processed/regional/smap_summary.json", "data/processed/regional/gpm_summary.json",
+        "data/processed/weather/meteomatics_hourly.csv", "data/processed/weather/meteomatics_daily.json",
+        "ml/clustering/artifacts/scaler.joblib", "ml/clustering/artifacts/kmeans.joblib",
+        "ml/clustering/artifacts/cluster_profile.json", "ml/clustering/artifacts/metrics.json",
+        "ml/clustering/artifacts/training_manifest.json",
     }
     names = {path.relative_to(ROOT).as_posix() for path in files}
     missing = required - names
     if missing:
         raise FileNotFoundError(f"Required demo-package assets are missing: {sorted(missing)}")
-    sample = json.loads((ROOT / "data/api-samples/meteomatics/demo_sample.example.json").read_text(encoding="utf-8"))
-    if "user" in sample:
-        raise ValueError("The packaged Meteomatics sample still contains an account identifier")
+    features = json.loads((ROOT / "data/features/features.json").read_text(encoding="utf-8"))
+    if features.get("meta", {}).get("data_mode") != "real" or len(features.get("points", [])) != 149:
+        raise ValueError("The release package requires the real 149-point feature document")
+    manifest = json.loads((ROOT / "ml/clustering/artifacts/training_manifest.json").read_text(encoding="utf-8"))
+    for record in manifest.get("artifacts", {}).values():
+        artifact = ROOT / "ml/clustering/artifacts" / record["file"]
+        if not artifact.is_file() or sha256(artifact) != record.get("sha256"):
+            raise ValueError(f"K-Means artifact checksum failed during packaging: {artifact.name}")
     env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
     for key in ("METEOMATICS_USERNAME", "METEOMATICS_PASSWORD"):
         for line in env_example.splitlines():

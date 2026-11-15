@@ -1,7 +1,8 @@
 {
   "model_name": "AgriShift Environmental K-Means",
   "algorithm": "KMeans",
-  "library_version": "scikit-learn==1.6.0",
+  "library_version": "scikit-learn==1.9.1",
+  "joblib_version": "1.6.0",
   "features_used": [
     "ndvi_mean",
     "ndmi_mean",
