@@ -1,47 +1,86 @@
-"""Load real, complete spatial feature observations for clustering."""
+"""
+Feature Preparation Pipeline for Unsupervised Environmental Clustering.
+Loads the pilot feature table, verifies variance and row counts, and prepares standardized matrices.
+"""
+
 from __future__ import annotations
 
-import json
-import math
 from pathlib import Path
-
+import sys
+from typing import Any
 import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+DEFAULT_FEATURE_TABLE = ROOT_DIR / "data" / "processed" / "features" / "pilot_feature_table.csv"
+
+CLUSTERING_FEATURES = [
+    "ndvi_mean",
+    "ndmi_mean",
+    "bsi_mean",
+    "surface_temp_c",
+    "elevation_m",
+    "slope_deg",
+]
+
+MIN_SAMPLE_SIZE = 20
 
 
-ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_INPUT = ROOT / "data" / "features" / "features.json"
-FEATURES = ("ndvi_mean", "ndmi_mean", "bsi_mean", "surface_temp_c", "elevation_m", "slope_deg")
-MINIMUM_OBSERVATIONS = 20
+def load_and_validate_features(
+    csv_path: Path = DEFAULT_FEATURE_TABLE,
+    features: list[str] = CLUSTERING_FEATURES,
+) -> tuple[pd.DataFrame, np.ndarray, dict[str, Any]]:
+    if not csv_path.exists():
+        raise FileNotFoundError(f"Feature table not found at {csv_path}")
 
+    df = pd.read_csv(csv_path)
 
-def load_observations(path: Path = DEFAULT_INPUT) -> tuple[list[dict], np.ndarray]:
-    """Read only real features.json; never fall back to example data or fill missing values."""
-    path = Path(path)
-    if not path.is_file():
-        raise FileNotFoundError(f"Real feature file is missing: {path}")
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    points = payload.get("points") if isinstance(payload, dict) else None
-    if not isinstance(points, list):
-        raise ValueError("Feature file must contain a points list")
-    accepted, matrix = [], []
-    for point in points:
-        if not isinstance(point, dict):
-            continue
-        features = point.get("features") or {}
-        coordinates = (point.get("lat"), point.get("lon"))
-        if any(not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(v)
-               for v in coordinates):
-            continue
-        values = [features.get(name) for name in FEATURES]
-        if any(not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(v)
-               for v in values):
-            continue
-        accepted.append(point)
-        matrix.append([float(value) for value in values])
-    unique_locations = {(round(float(p["lat"]), 6), round(float(p["lon"]), 6)) for p in accepted}
-    if len(accepted) < MINIMUM_OBSERVATIONS or len(unique_locations) < MINIMUM_OBSERVATIONS:
+    # Validate required columns
+    missing_cols = [f for f in features if f not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required feature columns: {missing_cols}")
+
+    # Drop any rows with NaN in features
+    clean_df = df.dropna(subset=features).copy()
+    valid_count = len(clean_df)
+
+    if valid_count < MIN_SAMPLE_SIZE:
         raise ValueError(
-            f"K-Means needs at least {MINIMUM_OBSERVATIONS} complete, distinct real spatial observations; "
-            f"found {len(accepted)} complete rows and {len(unique_locations)} unique locations"
+            f"Insufficient valid points ({valid_count}) for clustering. Minimum required is {MIN_SAMPLE_SIZE}."
         )
-    return accepted, np.asarray(matrix, dtype=np.float64)
+
+    # Check variance
+    variances = clean_df[features].var()
+    low_var_features = [f for f, v in variances.items() if v < 1e-5]
+    if low_var_features:
+        raise ValueError(f"Features have near-zero variance: {low_var_features}")
+
+    meta = {
+        "input_points_total": int(len(df)),
+        "valid_points_count": valid_count,
+        "features_used": features,
+        "features_excluded": [col for col in df.columns if col not in features and col not in ["id", "lat", "lon"]],
+        "feature_statistics": clean_df[features].describe().to_dict(),
+    }
+
+    X = clean_df[features].values
+    return clean_df, X, meta
+
+
+def fit_scaler(X: np.ndarray) -> tuple[StandardScaler, np.ndarray]:
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    return scaler, X_scaled
+
+
+if __name__ == "__main__":
+    df, X, meta = load_and_validate_features()
+    scaler, X_scaled = fit_scaler(X)
+    print(f"Loaded {len(df)} points. Feature matrix shape: {X_scaled.shape}")
+    print("Feature means in original space:")
+    for f, mean in zip(CLUSTERING_FEATURES, scaler.mean_):
+        print(f"  {f}: {mean:.4f}")

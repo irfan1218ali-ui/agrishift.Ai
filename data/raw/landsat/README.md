@@ -1,8 +1,10 @@
-# Landsat raw placement
+# Landsat source placement and provenance
 
-Expected local folder: data/raw/landsat/USGS_Landsat_C2_L2_Hyderabad_2025-09-22/. User reports scene downloaded or being organized, but matching files were not found in scanned project, Downloads, Desktop or Documents paths. No scene files were moved or inspected. Owner: Data/GIS/AI (Area D). Inputs: original USGS Collection 2 Level-2 product bundle. Outputs: later checksummed manifest. Do not store credentials or edited originals.
+The processed feature set uses Landsat 9 scene `LC09_L2SP_151043_20250930_20251001_02_T1` acquired 2025-09-30. The raw product is intentionally excluded from this repository; see `data/manifests/landsat-files.csv` and `docs/data/landsat-validation-report.md` for its validated file inventory and checksums.
 
-Owner: Data/GIS/AI (Area D).
-Inputs: source metadata, checksummed assets, field geometry and versioned schemas.
-Outputs: validated catalogs, assets, features, and model metadata.
-Must not store: credentials, unreviewed private farmer data, or unrelated scientific data.
+The earlier Landsat 8 expectation, `LC08_L2SP_151043_20250922_20250930_02_T1`, was not found and is superseded. Do not rename the original provider files or place unrelated imagery in this folder.
+
+- Owner: Data engineering
+- Inputs: Original USGS Landsat 9 Collection 2 Level-2 product bundle.
+- Outputs: Source manifest and downstream derived features/layers.
+- Must not store: Credentials, edited provider originals, or unverified field measurements.

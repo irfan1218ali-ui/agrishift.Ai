@@ -1,3 +1,5 @@
+> Historical Step 1/early Step 2 report. Superseded by validated Step 2A source outputs and the Step 2B integration report.
+
 # Step 2: Data, features, K-Means, SQLite results
 
 ## Verdict: NOT READY

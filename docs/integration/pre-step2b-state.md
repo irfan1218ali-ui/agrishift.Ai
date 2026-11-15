@@ -19,14 +19,15 @@ The current working tree contains the Step 1 FastAPI, static frontend, SQLite pe
 
 ## Backup checkpoint
 
-The Step 1 snapshot is being committed with `0277e34` as its parent so the Step 2A history can merge normally. Backup refs created from that checkpoint:
+The Step 1 snapshot was committed as `74d8a23` with `0277e34` as its parent so the Step 2A history could merge normally. Backup refs created from that checkpoint:
 
 - Branch: `backup/pre-step2b-integration-20261115-1515`
 - Tag: `pre-step2b-backup-20261115-1515`
-- Step 1 checkpoint commit: recorded after the checkpoint is created.
+- Step 1 checkpoint commit: `74d8a23` (`chore: stabilize AgriShift AI and enforce safe data modes`).
 
 ## Integration target
 
 - New branch: `hackathon/step-2b-integration`
 - Source branch: fetched locally from the sibling Step 2A checkout.
+- Merge initiated with `--no-ff`; 14 shared data/docs/ML paths required manual resolution. See `merge-conflicts.md`.
 - No remote push or deployment is part of this work.

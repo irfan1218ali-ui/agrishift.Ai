@@ -1,0 +1,53 @@
+{
+  "selected_k": 3,
+  "random_state": 42,
+  "selected_k_metrics": {
+    "silhouette_score": 0.3546,
+    "davies_bouldin_index": 0.978,
+    "inertia": 363.44,
+    "cluster_sizes": {
+      "0": 62,
+      "1": 67,
+      "2": 20
+    }
+  },
+  "all_k_evaluated": {
+    "2": {
+      "k": 2,
+      "silhouette_score": 0.3893,
+      "davies_bouldin_index": 1.02,
+      "inertia": 506.27,
+      "cluster_sizes": {
+        "0": 83,
+        "1": 66
+      },
+      "min_cluster_size": 66
+    },
+    "3": {
+      "k": 3,
+      "silhouette_score": 0.3546,
+      "davies_bouldin_index": 0.978,
+      "inertia": 363.44,
+      "cluster_sizes": {
+        "0": 62,
+        "1": 67,
+        "2": 20
+      },
+      "min_cluster_size": 20
+    },
+    "4": {
+      "k": 4,
+      "silhouette_score": 0.3096,
+      "davies_bouldin_index": 1.0834,
+      "inertia": 293.64,
+      "cluster_sizes": {
+        "0": 53,
+        "1": 32,
+        "2": 16,
+        "3": 48
+      },
+      "min_cluster_size": 16
+    }
+  },
+  "selection_rationale": "k=3 achieves the lowest Davies-Bouldin index (0.9780), strong silhouette score (0.3546), and clean physical separation into three distinct, non-trivial environmental groups (Relatively vegetated n=62, Intermediate condition n=67, Higher bare/thermal exposure n=20)."
+}

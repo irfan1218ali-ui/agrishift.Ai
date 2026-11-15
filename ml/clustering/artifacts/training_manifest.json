@@ -1,0 +1,33 @@
+{
+  "model_name": "AgriShift Environmental K-Means",
+  "algorithm": "KMeans",
+  "library_version": "scikit-learn==1.6.0",
+  "features_used": [
+    "ndvi_mean",
+    "ndmi_mean",
+    "bsi_mean",
+    "surface_temp_c",
+    "elevation_m",
+    "slope_deg"
+  ],
+  "training_samples_count": 149,
+  "random_state": 42,
+  "artifacts": {
+    "scaler": {
+      "file": "scaler.joblib",
+      "sha256": "a043e4b84f54ecca5155c9a893fc7945703bd44d985a987df685545735be5158"
+    },
+    "kmeans": {
+      "file": "kmeans.joblib",
+      "sha256": "00aa221753490d26dca2955853193ed7f0f6f35624726d350e3444c7e8bcc480"
+    },
+    "cluster_profile": {
+      "file": "cluster_profile.json",
+      "sha256": "dfc89bfd1e58f5816a85ea2d327ba8befe302f9128831623f9ddb077f0767a7e"
+    },
+    "metrics": {
+      "file": "metrics.json",
+      "sha256": "443a09a5571fdf6b5c9cbf53ffd685265edf0786969adfed1f253c5e3c52775b"
+    }
+  }
+}

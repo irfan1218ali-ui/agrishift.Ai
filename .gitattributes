@@ -11,3 +11,4 @@
 *.tiff binary
 *.nc binary
 *.h5 binary
+ml/clustering/artifacts/*.json binary

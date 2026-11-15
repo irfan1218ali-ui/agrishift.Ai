@@ -1,0 +1,13 @@
+{
+  "dataset_id": "nasa-gpm-3imergdf-v07-hyderabad",
+  "provider": "NASA / JAXA",
+  "product": "GPM_3IMERGDF V07 Final Run",
+  "gpm_observation_start": "2025-09-01T00:00:00Z",
+  "gpm_observation_end": "2025-09-07T23:59:59Z",
+  "gpm_source_resolution": "0.1 deg (~10 km)",
+  "mean_daily_rate_mm_day": 5.465,
+  "days_in_period": 7,
+  "gpm_limitation": "Regional satellite estimate, not a field rain gauge. Weekly time-averaged daily rate; daily totals, rainy-day counts, and maximum daily rainfall are unavailable.",
+  "minimum_cell_mean_daily_rate_mm_day": 4.05,
+  "maximum_cell_mean_daily_rate_mm_day": 6.7629
+}
