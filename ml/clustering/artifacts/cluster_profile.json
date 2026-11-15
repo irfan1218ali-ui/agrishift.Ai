@@ -1,0 +1,71 @@
+{
+  "0": {
+    "cluster_id": 0,
+    "cluster_label": "Relatively vegetated",
+    "sample_count": 62,
+    "sample_fraction": 0.4161,
+    "center_original_units": {
+      "ndvi_mean": 0.5862,
+      "ndmi_mean": 0.2723,
+      "bsi_mean": -0.1665,
+      "surface_temp_c": 37.3579,
+      "elevation_m": 20.9308,
+      "slope_deg": 1.6905
+    },
+    "std_original_units": {
+      "ndvi_mean": 0.0875,
+      "ndmi_mean": 0.0625,
+      "bsi_mean": 0.0555,
+      "surface_temp_c": 1.8665,
+      "elevation_m": 2.816,
+      "slope_deg": 0.4051
+    },
+    "interpretation": "Relatively high green vegetation canopy and lower thermal exposure."
+  },
+  "1": {
+    "cluster_id": 1,
+    "cluster_label": "Intermediate condition",
+    "sample_count": 67,
+    "sample_fraction": 0.4497,
+    "center_original_units": {
+      "ndvi_mean": 0.3392,
+      "ndmi_mean": 0.13,
+      "bsi_mean": -0.004,
+      "surface_temp_c": 41.3534,
+      "elevation_m": 21.5743,
+      "slope_deg": 1.9475
+    },
+    "std_original_units": {
+      "ndvi_mean": 0.1352,
+      "ndmi_mean": 0.0874,
+      "bsi_mean": 0.0556,
+      "surface_temp_c": 3.143,
+      "elevation_m": 2.4686,
+      "slope_deg": 0.5603
+    },
+    "interpretation": "Intermediate vegetative canopy and moderate surface moisture."
+  },
+  "2": {
+    "cluster_id": 2,
+    "cluster_label": "Higher bare/thermal exposure",
+    "sample_count": 20,
+    "sample_fraction": 0.1342,
+    "center_original_units": {
+      "ndvi_mean": 0.259,
+      "ndmi_mean": -0.0013,
+      "bsi_mean": 0.0925,
+      "surface_temp_c": 43.7495,
+      "elevation_m": 45.9315,
+      "slope_deg": 2.9885
+    },
+    "std_original_units": {
+      "ndvi_mean": 0.0588,
+      "ndmi_mean": 0.0321,
+      "bsi_mean": 0.0238,
+      "surface_temp_c": 2.1961,
+      "elevation_m": 11.9483,
+      "slope_deg": 0.8663
+    },
+    "interpretation": "Sparse vegetation, elevated bare soil index, and higher surface temperature."
+  }
+}

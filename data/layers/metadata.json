@@ -1,0 +1,58 @@
+{
+  "bounds": {
+    "west": 68.2,
+    "south": 25.2,
+    "east": 68.55,
+    "north": 25.55
+  },
+  "layers": {
+    "ndvi": {
+      "file": "ndvi.png",
+      "provider": "USGS/NASA",
+      "product": "Landsat Collection 2 Level-2",
+      "observation_date": "2025-09-30",
+      "source_resolution_m": 30,
+      "unit": "index",
+      "minimum": -1.0,
+      "maximum": 0.9537,
+      "color_scale": "Brown (-0.2, non-vegetated) -> Yellow (sparse) -> Green (dense canopy 0.8)",
+      "limitation": "Cloud-masked satellite observation; off-swath and cloudy pixels rendered fully transparent."
+    },
+    "ndmi": {
+      "file": "ndmi.png",
+      "provider": "USGS/NASA",
+      "product": "Landsat Collection 2 Level-2",
+      "observation_date": "2025-09-30",
+      "source_resolution_m": 30,
+      "unit": "index",
+      "minimum": -1.0,
+      "maximum": 0.8692,
+      "color_scale": "Orange (-0.3, moisture stress) -> Cyan (moderate) -> Blue (high moisture 0.5)",
+      "limitation": "Reflects canopy water content and open water surfaces on date of overpass."
+    },
+    "bsi": {
+      "file": "bsi.png",
+      "provider": "USGS/NASA",
+      "product": "Landsat Collection 2 Level-2",
+      "observation_date": "2025-09-30",
+      "source_resolution_m": 30,
+      "unit": "index",
+      "minimum": -0.7049,
+      "maximum": 1.0,
+      "color_scale": "Green (-0.3, vegetated/non-bare) -> Cream (intermediate) -> Dark Amber (0.3, exposed soil)",
+      "limitation": "Identifies bare soil and fallow fields; sensitivity depends on surface soil moisture and crop residue."
+    },
+    "slope": {
+      "file": "slope.png",
+      "provider": "NASA/USGS",
+      "product": "SRTMGL1 V003",
+      "observation_date": "2000-02-11",
+      "source_resolution_m": 30,
+      "unit": "degrees",
+      "minimum": 0.0,
+      "maximum": 73.2917,
+      "color_scale": "Cream (0-2 deg, flat alluvial plains) -> Amber (2-5 deg) -> Crimson (>10 deg, embankments)",
+      "limitation": "Derived from 30m radar elevation model; micro-topography below 30m resolution is smoothed."
+    }
+  }
+}

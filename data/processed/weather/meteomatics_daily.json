@@ -1,0 +1,96 @@
+{
+  "metadata": {
+    "source": "Meteomatics Weather API",
+    "is_sample": false,
+    "is_live": false,
+    "generated_at": "2026-11-15T07:20:04Z",
+    "valid_from": "2026-11-15T07:00:00Z",
+    "valid_until": "2026-11-22T07:00:00Z",
+    "expired": false,
+    "coordinates": {
+      "latitude": 25.396628,
+      "longitude": 68.357436
+    },
+    "location_name": "Hyderabad, Sindh, Pakistan",
+    "parameters": [
+      "t_2m:C",
+      "precip_1h:mm",
+      "relative_humidity_2m:p",
+      "wind_speed_10m:ms"
+    ]
+  },
+  "daily_forecast": [
+    {
+      "date": "2026-11-15",
+      "tmax_c": 32.8,
+      "tmin_c": 20.5,
+      "rain_total_mm": 0.0,
+      "rh_mean": 34.86,
+      "wind_max_ms": 2.9,
+      "hours_count": 17
+    },
+    {
+      "date": "2026-11-16",
+      "tmax_c": 32.4,
+      "tmin_c": 19.1,
+      "rain_total_mm": 0.0,
+      "rh_mean": 31.96,
+      "wind_max_ms": 2.9,
+      "hours_count": 24
+    },
+    {
+      "date": "2026-11-17",
+      "tmax_c": 32.4,
+      "tmin_c": 18.5,
+      "rain_total_mm": 0.0,
+      "rh_mean": 30.53,
+      "wind_max_ms": 1.7,
+      "hours_count": 24
+    },
+    {
+      "date": "2026-11-18",
+      "tmax_c": 32.3,
+      "tmin_c": 18.9,
+      "rain_total_mm": 0.0,
+      "rh_mean": 28.85,
+      "wind_max_ms": 2.8,
+      "hours_count": 24
+    },
+    {
+      "date": "2026-11-19",
+      "tmax_c": 31.7,
+      "tmin_c": 18.4,
+      "rain_total_mm": 0.0,
+      "rh_mean": 27.84,
+      "wind_max_ms": 3.4,
+      "hours_count": 24
+    },
+    {
+      "date": "2026-11-20",
+      "tmax_c": 31.2,
+      "tmin_c": 18.2,
+      "rain_total_mm": 0.0,
+      "rh_mean": 26.08,
+      "wind_max_ms": 2.7,
+      "hours_count": 24
+    },
+    {
+      "date": "2026-11-21",
+      "tmax_c": 28.8,
+      "tmin_c": 17.7,
+      "rain_total_mm": 0.0,
+      "rh_mean": 27.36,
+      "wind_max_ms": 2.8,
+      "hours_count": 24
+    },
+    {
+      "date": "2026-11-22",
+      "tmax_c": 26.5,
+      "tmin_c": 17.5,
+      "rain_total_mm": 0.0,
+      "rh_mean": 30.95,
+      "wind_max_ms": 3.3,
+      "hours_count": 8
+    }
+  ]
+}

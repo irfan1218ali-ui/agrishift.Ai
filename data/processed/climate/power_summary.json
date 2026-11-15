@@ -1,0 +1,213 @@
+{
+  "metadata": {
+    "source": "NASA POWER Daily Agroclimatology",
+    "model_version": "MERRA-2 / CERES SYN1deg",
+    "location": {
+      "latitude": 25.396,
+      "longitude": 68.3578
+    },
+    "period": {
+      "start_year": 2015,
+      "end_year": 2025,
+      "total_years": 11
+    },
+    "limitation": "Regional gridded climate reanalysis; not a farm-scale meteorological station."
+  },
+  "overall_means": {
+    "t2m_mean_c": 27.3,
+    "rh_mean_percent": 46.84,
+    "wind_mean_ms": 3.27,
+    "solar_radiation_mean_mj_m2_day": 19.66,
+    "annual_precipitation_mean_mm": 317.64
+  },
+  "monthly_indicators": {
+    "heat_days_40c_by_month": {
+      "1": 0.0,
+      "2": 0.0,
+      "3": 3.3,
+      "4": 17.9,
+      "5": 27.1,
+      "6": 21.8,
+      "7": 9.5,
+      "8": 1.5,
+      "9": 3.5,
+      "10": 3.2,
+      "11": 0.0,
+      "12": 0.0
+    },
+    "tmax_mean_by_month": {
+      "1": 25.41,
+      "2": 30.16,
+      "3": 34.98,
+      "4": 40.36,
+      "5": 42.51,
+      "6": 41.21,
+      "7": 38.46,
+      "8": 36.73,
+      "9": 37.3,
+      "10": 36.82,
+      "11": 31.79,
+      "12": 27.0
+    },
+    "rain_mm_by_month": {
+      "1": 5.74,
+      "2": 1.67,
+      "3": 2.06,
+      "4": 3.99,
+      "5": 57.83,
+      "6": 17.75,
+      "7": 87.12,
+      "8": 108.48,
+      "9": 27.15,
+      "10": 1.68,
+      "11": 1.59,
+      "12": 2.58
+    }
+  },
+  "monthly_table": [
+    {
+      "month_num": 1,
+      "month_name": "Jan",
+      "t2m_mean_c": 16.98,
+      "t2m_max_mean_c": 25.41,
+      "t2m_min_mean_c": 10.27,
+      "heat_days_ge_40c_mean": 0.0,
+      "precip_total_mean_mm": 5.74,
+      "rh2m_mean_percent": 37.79,
+      "ws2m_mean_ms": 1.98,
+      "allsky_sw_dwn_mean_mj": 14.73
+    },
+    {
+      "month_num": 2,
+      "month_name": "Feb",
+      "t2m_mean_c": 21.26,
+      "t2m_max_mean_c": 30.16,
+      "t2m_min_mean_c": 13.7,
+      "heat_days_ge_40c_mean": 0.0,
+      "precip_total_mean_mm": 1.67,
+      "rh2m_mean_percent": 34.02,
+      "ws2m_mean_ms": 2.16,
+      "allsky_sw_dwn_mean_mj": 18.06
+    },
+    {
+      "month_num": 3,
+      "month_name": "Mar",
+      "t2m_mean_c": 26.3,
+      "t2m_max_mean_c": 34.98,
+      "t2m_min_mean_c": 18.66,
+      "heat_days_ge_40c_mean": 3.3,
+      "precip_total_mean_mm": 2.06,
+      "rh2m_mean_percent": 36.65,
+      "ws2m_mean_ms": 2.62,
+      "allsky_sw_dwn_mean_mj": 21.57
+    },
+    {
+      "month_num": 4,
+      "month_name": "Apr",
+      "t2m_mean_c": 31.26,
+      "t2m_max_mean_c": 40.36,
+      "t2m_min_mean_c": 23.29,
+      "heat_days_ge_40c_mean": 17.9,
+      "precip_total_mean_mm": 3.99,
+      "rh2m_mean_percent": 39.12,
+      "ws2m_mean_ms": 3.52,
+      "allsky_sw_dwn_mean_mj": 23.98
+    },
+    {
+      "month_num": 5,
+      "month_name": "May",
+      "t2m_mean_c": 33.62,
+      "t2m_max_mean_c": 42.51,
+      "t2m_min_mean_c": 26.11,
+      "heat_days_ge_40c_mean": 27.1,
+      "precip_total_mean_mm": 57.83,
+      "rh2m_mean_percent": 47.11,
+      "ws2m_mean_ms": 4.64,
+      "allsky_sw_dwn_mean_mj": 24.83
+    },
+    {
+      "month_num": 6,
+      "month_name": "Jun",
+      "t2m_mean_c": 33.91,
+      "t2m_max_mean_c": 41.21,
+      "t2m_min_mean_c": 28.1,
+      "heat_days_ge_40c_mean": 21.8,
+      "precip_total_mean_mm": 17.75,
+      "rh2m_mean_percent": 54.48,
+      "ws2m_mean_ms": 5.19,
+      "allsky_sw_dwn_mean_mj": 23.47
+    },
+    {
+      "month_num": 7,
+      "month_name": "Jul",
+      "t2m_mean_c": 32.47,
+      "t2m_max_mean_c": 38.46,
+      "t2m_min_mean_c": 28.08,
+      "heat_days_ge_40c_mean": 9.5,
+      "precip_total_mean_mm": 87.12,
+      "rh2m_mean_percent": 63.23,
+      "ws2m_mean_ms": 5.03,
+      "allsky_sw_dwn_mean_mj": 20.01
+    },
+    {
+      "month_num": 8,
+      "month_name": "Aug",
+      "t2m_mean_c": 30.68,
+      "t2m_max_mean_c": 36.73,
+      "t2m_min_mean_c": 26.33,
+      "heat_days_ge_40c_mean": 1.5,
+      "precip_total_mean_mm": 108.48,
+      "rh2m_mean_percent": 67.7,
+      "ws2m_mean_ms": 4.42,
+      "allsky_sw_dwn_mean_mj": 19.59
+    },
+    {
+      "month_num": 9,
+      "month_name": "Sep",
+      "t2m_mean_c": 30.31,
+      "t2m_max_mean_c": 37.3,
+      "t2m_min_mean_c": 24.96,
+      "heat_days_ge_40c_mean": 3.5,
+      "precip_total_mean_mm": 27.15,
+      "rh2m_mean_percent": 64.32,
+      "ws2m_mean_ms": 3.41,
+      "allsky_sw_dwn_mean_mj": 20.96
+    },
+    {
+      "month_num": 10,
+      "month_name": "Oct",
+      "t2m_mean_c": 28.65,
+      "t2m_max_mean_c": 36.82,
+      "t2m_min_mean_c": 21.86,
+      "heat_days_ge_40c_mean": 3.2,
+      "precip_total_mean_mm": 1.68,
+      "rh2m_mean_percent": 48.14,
+      "ws2m_mean_ms": 2.22,
+      "allsky_sw_dwn_mean_mj": 19.16
+    },
+    {
+      "month_num": 11,
+      "month_name": "Nov",
+      "t2m_mean_c": 23.53,
+      "t2m_max_mean_c": 31.79,
+      "t2m_min_mean_c": 16.92,
+      "heat_days_ge_40c_mean": 0.0,
+      "precip_total_mean_mm": 1.59,
+      "rh2m_mean_percent": 36.68,
+      "ws2m_mean_ms": 1.91,
+      "allsky_sw_dwn_mean_mj": 15.37
+    },
+    {
+      "month_num": 12,
+      "month_name": "Dec",
+      "t2m_mean_c": 18.39,
+      "t2m_max_mean_c": 27.0,
+      "t2m_min_mean_c": 11.8,
+      "heat_days_ge_40c_mean": 0.0,
+      "precip_total_mean_mm": 2.58,
+      "rh2m_mean_percent": 31.97,
+      "ws2m_mean_ms": 2.06,
+      "allsky_sw_dwn_mean_mj": 14.15
+    }
+  ]
+}

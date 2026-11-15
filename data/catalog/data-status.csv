@@ -1,7 +1,8 @@
-dataset_id,provider,status,status_date,validation_note
-nasa-smap-spl4smgp-v008-hyderabad,NASA SMAP,VALIDATION_PENDING,,Files reported in local Downloads folder; not inspected
-nasa-gpm-3imergdf-v07-hyderabad,NASA GPM IMERG,VALIDATION_PENDING,,Two product exports found in repository raw folder; contents not inspected
-usgs-landsat-c2-l2-lc08-151043-20250922,USGS/NASA Landsat,REGISTERED,,User reports downloaded or being organized; local scene files not located
-nasa-srtm-nasadem-hyderabad,NASA SRTM/NASADEM,NOT_STARTED,,Pending
-nasa-power-climate,NASA POWER,API_ACCESS_PENDING,,No API request made
-meteomatics-weather,Meteomatics,API_ACCESS_PENDING,,No API request made
+source_id,status,actual_path,product,version,date_start,date_end,validation_notes
+usgs-landsat-c2-l2-lc08-151043-20250922,MISSING,data/raw/landsat/USGS_Landsat_C2_L2_Hyderabad_2025-09-22,Landsat Collection 2 Level-2,C2 L2,2025-09-22,2025-09-22,Expected scene not found locally; reported missing without fabrication
+usgs-landsat-c2-l2-lc09-151043-20250930,PROCESSING_READY,data/raw/landsat/extracted,Landsat Collection 2 Level-2,C2 L2,2025-09-30,2025-09-30,Actual scene discovered in Downloads and extracted; all 8 bands and MTL metadata validated
+nasa-smap-spl4smgp-v008-hyderabad,PROCESSING_READY,data/raw/smap/extracted,SMAP SPL4SMGP,V008,2026-10-01,2026-10-07,Discovered 112 GeoTIFFs (56 surface and 56 root-zone) plus GeoJSON; validated regional moisture context
+nasa-gpm-3imergdf-v07-hyderabad,PROCESSING_READY,data/raw/gpm-imerg,GPM_3IMERGDF,V07 Final Run,2025-09-01,2025-09-07,Discovered NetCDF and GeoTIFF files; validated mean rate 5.465 mm/day and total 38.25 mm
+nasa-srtm-nasadem-hyderabad,PROCESSING_READY,data/raw/terrain/NASA_SRTM_or_NASADEM_Hyderabad,SRTMGL1,V003,2000-02-11,2000-02-22,Discovered 1 arc-second DEM and NUM quality raster; 100 percent valid coverage of pilot area
+nasa-power-climate,PROCESSING_READY,data/api-samples/nasa-power/POWER_Point_Daily_20150101_20251231_025d40N_068d36E_LST (1).csv,POWER Daily Agroclimatology,MERRA-2/CERES,2015-01-01,2025-12-31,Discovered 4018 daily records for 7 required variables at pilot coordinates; fully validated
+meteomatics-weather,PROCESSING_READY,data/api-samples/meteomatics/json.json,Meteomatics Weather API,Hourly,2026-11-15,2026-11-22,Discovered real JSON with 169 hourly timesteps for 4 parameters at Hyderabad pilot coordinates

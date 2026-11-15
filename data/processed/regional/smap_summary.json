@@ -1,0 +1,14 @@
+{
+  "dataset_id": "nasa-smap-spl4smgp-v008-hyderabad",
+  "provider": "NASA",
+  "product": "SPL4SMGP V008",
+  "smap_surface_mean": 0.0725,
+  "smap_rootzone_mean": 0.1413,
+  "smap_observation_start": "2026-10-01T01:30:00Z",
+  "smap_observation_end": "2026-10-07T22:30:00Z",
+  "smap_source_resolution": "approximately 9 km (0.078 deg EASE-Grid)",
+  "units": "m^3/m^3 (volumetric soil moisture fraction)",
+  "timesteps_count": 56,
+  "temporal_alignment_note": "SMAP dataset dates (2026-10-01 to 2026-10-07) do not match Landsat acquisition date (2025-09-30); used strictly as regional seasonal moisture context.",
+  "smap_limitation": "Regional soil-moisture context; not an exact field measurement."
+}
