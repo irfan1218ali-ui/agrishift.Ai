@@ -1,9 +1,9 @@
 # NASA GPM IMERG
 
 - **Product:** GPM_3IMERGDF V07 Final Run.
-- **Purpose/variable:** daily mean precipitation rate; derive rainfall totals, heavy-rain and wet/dry spell indicators only after unit/time checks.
+- **Purpose/variable:** supplied asset is a weekly time-averaged daily precipitation rate; it does not support daily totals, rainy days, or maximum daily rainfall.
 - **Unit/temporal/spatial:** mm/day; daily; 0.1° (approximately 10 km), regional estimate.
-- **Access/status:** NASA Giovanni; validation pending. Two export files are present at the root of `data/raw/gpm-imerg/`; their contents have not been inspected.
-- **Storage:** keep current files and names untouched. Expected organized copy path, only after a documented verified copy: `data/raw/gpm-imerg/NASA_GPM_3IMERGDF_V07_Hyderabad_2025-09-01_2025-09-07/original/`.
-- **Processing/quality:** later validate actual metadata, units, CRS, dates, NoData, Final Run identity and checksums; do not mix run types.
-- **Limitations/model/map:** not an individual field rain gauge. Candidate regional rainfall feature/context layer with date, run and resolution disclosed. No validation result is claimed.
+- **Access/status:** two matching exports were inspected: one NetCDF and one GeoTIFF. Their units are `mm/day`, grid is EPSG:4326 at about 0.1°, and the NetCDF identifies the V07 Final Run weekly average.
+- **Storage:** source files retain their original names in `data/raw/gpm-imerg/`; checksum and metadata records are in `data/manifests/gpm-files.csv`.
+- **Observed summary:** 12 valid cells; mean 5.4650 mm/day; cell means range 4.0500–6.7629 mm/day; 2025-09-01 through 2025-09-07 UTC.
+- **Limitations/model/map:** coarse regional context, not an individual field rain gauge. The supplied weekly aggregate cannot be expanded into daily series or summed into a verified weekly total.

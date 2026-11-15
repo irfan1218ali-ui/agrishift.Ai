@@ -105,13 +105,24 @@ def test_weather_live(tmp_path):
     assert len(out["hourly"]) == 2
 
 
-def test_weather_failure_uses_labelled_sample(tmp_path):
+def test_real_weather_failure_does_not_use_saved_sample(tmp_path):
     (tmp_path / "meteomatics_sample.json").write_text(json.dumps(MM))
 
     def boom(*a, **k):
         raise OSError("offline")
 
     out = weather.get_weather(25.39, 68.37, **kw(tmp_path, user="u", password="p", fetcher=boom))
+    assert out["available"] is False and out["is_sample"] is False
+
+
+def test_demo_weather_failure_uses_labelled_sample(tmp_path):
+    (tmp_path / "meteomatics_sample.json").write_text(json.dumps(MM))
+
+    def boom(*a, **k):
+        raise OSError("offline")
+
+    out = weather.get_weather(25.39, 68.37, **kw(tmp_path, user="u", password="p",
+                                                 fetcher=boom, demo_mode=True))
     assert out["available"] and out["is_sample"] is True
     assert out["hourly"][0]["timestamp_utc"] == "2026-11-15T00:00:00Z"
     assert out["days"][0]["date"] == "2026-11-15"
@@ -129,6 +140,13 @@ def test_weather_demo_mode_uses_sample_without_credentials(tmp_path):
     (tmp_path / "meteomatics_sample.json").write_text(json.dumps({"days": [{"tmax_c": 30, "rain_mm": 0}]}))
     out = weather.get_weather(25.39, 68.37, **kw(tmp_path, demo_mode=True))
     assert out["is_sample"] is True
+
+
+def test_saved_weather_sample_expiry_uses_injected_time(tmp_path):
+    (tmp_path / "meteomatics_sample.json").write_text(json.dumps(MM))
+    later = datetime(2026, 12, 1, tzinfo=timezone.utc)
+    out = weather.get_weather(25.39, 68.37, **kw(tmp_path, demo_mode=True, now=later))
+    assert out["available"] and out["is_sample"] and out["expired"]
 
 
 # ---------------------------------------------------------------- features

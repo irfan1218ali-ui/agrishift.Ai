@@ -1,8 +1,12 @@
-# NASA GPM IMERG raw placement
+# NASA GPM IMERG raw files
 
-Two GPM_3IMERGDF V07 export files already exist directly in this folder. Their filenames/extensions were inventoried, but contents and raster metadata were not inspected; do not claim validation. The source files have not been moved, renamed, processed, or deleted. A future organized target is data/raw/gpm-imerg/NASA_GPM_3IMERGDF_V07_Hyderabad_2025-09-01_2025-09-07/original/. Copy only after documenting the exact operation and verifying source/target checksums. Owner: Data/GIS/AI (Area D). Inputs: immutable Giovanni exports. Outputs: validated manifest and derived assets later. Do not store credentials or modify originals.
+The original NetCDF and GeoTIFF exports retain their names and were not edited, renamed, or moved. Inspection identified the supplied product as a 7-day time-averaged daily precipitation-rate map (Final Run V07), not a daily series. See `data/manifests/gpm-files.csv` and `docs/data/source-inventory.md` for measured metadata and limitations.
 
-Owner: Data/GIS/AI (Area D).
-Inputs: source metadata, checksummed assets, field geometry and versioned schemas.
-Outputs: validated catalogs, assets, features, and model metadata.
-Must not store: credentials, unreviewed private farmer data, or unrelated scientific data.
+Regional context only: the aggregate does not support daily totals, rainy-day counts, maximum daily precipitation, or a verified weekly sum. The original files are excluded from Git and the demo package.
+
+## Handling
+
+- Owner: Data engineering
+- Inputs: The two user-supplied Giovanni exports named in `data/manifests/gpm-files.csv`.
+- Outputs: A checksummed inventory and a regional mean-rate summary; no daily series is derived.
+- Must not store: Credentials, unrelated source downloads, or unverified daily rainfall values.

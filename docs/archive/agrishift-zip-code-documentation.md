@@ -1,8 +1,8 @@
 # AgriShift AI ZIP — Detailed Project and Complete Code Reference
 
-> Source archive: C:/Users/HP/Downloads/agrishift.zip  
-> Archive root: agrishift/  
-> Review date: 2026-11-15 (Asia/Karachi)  
+> Source archive: `Downloads/agrishift.zip`
+> Archive root: agrishift/
+> Review date: 2026-11-15 (Asia/Karachi)
 > This document describes the ZIP as supplied. It does not merge, execute, validate, or activate its code.
 
 ## What this document contains

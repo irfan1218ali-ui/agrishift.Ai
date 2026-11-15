@@ -1,6 +1,7 @@
 """AgriShift AI - FastAPI app.   Run:  uvicorn app.main:app --app-dir apps/api --port 8000"""
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from functools import lru_cache
 import json
 from uuid import uuid4
@@ -15,11 +16,19 @@ from .config import get_settings
 from .schemas import AnalyzeRequest
 from . import service
 from . import db
+from . import regional_context
 
 LAYER_NAMES = {"ndvi", "ndmi", "bsi", "slope"}
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    db.initialize()
+    yield
+
+
 app = FastAPI(title="AgriShift AI API", version="1.0.0",
-              description="Rule-based crop rotation options for the Hyderabad (Sindh) pilot. No trained ML model.")
+              description="Rule-based crop rotation options for the Hyderabad (Sindh) pilot. No trained ML model.",
+              lifespan=lifespan)
 
 _settings = get_settings()
 app.add_middleware(CORSMiddleware, allow_origins=_settings.cors_origins, allow_methods=["GET", "POST"],
@@ -60,11 +69,6 @@ async def unexpected_error(request: Request, exc: Exception):
     return _error(request, 500, "INTERNAL_ERROR", "The request could not be completed.")
 
 
-@app.on_event("startup")
-def initialize_database():
-    db.initialize()
-
-
 @lru_cache(maxsize=1)
 def deps() -> service.Deps:
     return service.build_deps()
@@ -91,6 +95,12 @@ def analyze(req: AnalyzeRequest):
 @app.get("/api/v1/crops")
 def crops():
     return service.crops_payload(deps())
+
+
+@app.get("/api/v1/context")
+def context():
+    return regional_context.get_regional_context(deps().settings.root / "data" / "processed" /
+                                                  "model-features" / "regional_context.json")
 
 
 @app.get("/api/v1/weather")

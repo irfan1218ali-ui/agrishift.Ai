@@ -1,17 +1,18 @@
-# Proposed API groups
+# Implemented API endpoints
 
-| Group | Responsibility |
+The FastAPI app is in `apps/api/app/main.py`; OpenAPI is served at `/openapi.json`.
+
+| Method and path | Behavior |
 |---|---|
-| `/auth`, `/users` | Identity, sessions, profile and consent |
-| `/farms`, `/fields`, `/boundaries` | Tenant-scoped farm and geometry management |
-| `/datasets`, `/providers` | Catalog, coverage, provider health and terms |
-| `/environment`, `/weather`, `/imagery` | Normalized observations, forecasts, imagery metadata |
-| `/map-layers` | Layer contract, legends, resolution, attribution, availability |
-| `/processing-jobs` | Async job submission/status/cancel |
-| `/models`, `/predictions` | Model metadata/version and inference requests/results |
-| `/crops`, `/rotations`, `/scenarios` | Verified knowledge and rotation alternatives |
-| `/reports`, `/feedback` | Evidence reports and reviewed feedback |
-| `/admin` | Restricted catalog/operations workflows |
-| `/health`, `/ready` | Liveness and dependency readiness |
+| `GET /api/v1/health` | Reports API status, crop count, data availability/mode, and whether Meteomatics credentials are configured (never returns secrets) |
+| `GET /api/v1/crops` | Lists localized crop names and rule-verification status |
+| `POST /api/v1/analyze` | Validates farmer inputs; returns `not_applicable`, `insufficient_data`, or exactly three distinct rule-based rotation options; persists all outcomes |
+| `GET /api/v1/analyses/{analysis_id}` | Reads saved request/result from SQLite |
+| `GET /api/v1/context` | Returns sanitized real SMAP/GPM regional context and temporal-alignment limitations |
+| `GET /api/v1/weather?lat=...&lon=...` | Returns live Meteomatics data, an explicit demo sample, or unavailable status |
+| `GET /api/v1/layers/metadata` | Returns source-aware layer bounds and metadata |
+| `GET /api/v1/layers/{name}.png` | Serves whitelisted `ndvi`, `ndmi`, `bsi`, or `slope` layers when present |
 
-Groups are proposals. Define authorization scopes and tenant ownership before implementation; admin paths need stronger controls. Long processing is asynchronous. Health must not expose credentials or internal topology.
+Errors use a JSON object containing `error.code`, a safe message, request ID, and details. The `X-Request-ID` response header matches the JSON request ID. The default CORS allowlist is localhost-only; wildcard origins are rejected in production mode.
+
+Unavailable real feature data is not filled from the example file. Real mode returns `insufficient_data` for missing required feature rows. Forecast samples are demo-only and are never labeled live.

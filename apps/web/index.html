@@ -451,6 +451,10 @@ async function getWeather(){
     return await fetchJson(`${CONFIG.API_BASE}/api/v1/weather?lat=${lat}&lon=${lon}`, null, 10000);
   } catch(e){ return {available:false}; }
 }
+async function getRegionalContext(){
+  try{ return await fetchJson(`${CONFIG.API_BASE}/api/v1/context`, null, 10000); }
+  catch(e){ return {available:false, regional_context:{}, limitations:[]}; }
+}
 
 /* ================= RESULTS ================= */
 function seasonLabel(code){
@@ -575,6 +579,7 @@ async function renderExpert(){
     }catch(e){}
   }
   const w = await getWeather();
+  const regional = await getRegionalContext();
   const snap = r && r.data_snapshot ? r.data_snapshot : null;
   let html = `<h3>Data dates and analysis</h3>` + (snap && (snap.satellite_window || snap.landsat_date)
     ? `<p>Satellite window: <b>${snap.satellite_window||"—"}</b> · Landsat scene: <b>${snap.landsat_date||"—"}</b></p>`
@@ -583,13 +588,15 @@ async function renderExpert(){
   html += `<h3>Environmental condition zone</h3>`;
   html += r && r.field_context ? `<p>${r.field_context.cluster_label||"Clustering unavailable"}</p><p>${r.field_context.cluster_interpretation||"No environmental cluster was assigned."}</p>` : `<p>No environmental cluster was assigned.</p>`;
   html += `<h3>Regional context (not used in scoring)</h3>`;
-  if(r && r.regional_context){
-    const sm = r.regional_context.soil_moisture, rf = r.regional_context.rainfall;
-    html += `<table><tr><th>Item</th><th>Value</th><th>Resolution</th><th>Note</th></tr>`
-      + (sm ? `<tr><td>SMAP soil moisture</td><td>${sm.value} ${sm.unit}</td><td>~${sm.resolution_km} km</td><td>${I18N.en[sm.note_id]||""}</td></tr>` : "")
-      + (rf ? `<tr><td>GPM IMERG rainfall (Sep)</td><td>${rf.total_mm} mm</td><td>~${rf.resolution_km} km</td><td>${I18N.en[rf.note_id]||""}</td></tr>` : "")
-      + `</table>`;
-  } else html += `<p>—</p>`;
+  const context = r && r.data_mode === "DEMO" && r.regional_context ? r.regional_context : (regional.regional_context||{});
+  const sm = context.soil_moisture, rf = context.rainfall;
+  if(sm || rf){
+    html += `<table><tr><th>Item</th><th>Value</th><th>Observation period</th><th>Limitation</th></tr>`
+      + (sm ? `<tr><td>SMAP surface / root-zone moisture</td><td>${sm.surface_mean!==undefined ? `${sm.surface_mean} / ${sm.rootzone_mean} ${sm.unit}` : `${sm.value} ${sm.unit}`}</td><td>${sm.observation_start_utc||"sample"} – ${sm.observation_end_utc||""}</td><td>${sm.note||I18N.en[sm.note_id]||"Regional context only."}</td></tr>` : "")
+      + (rf ? `<tr><td>GPM IMERG rainfall</td><td>${rf.mean_daily_mm_per_day!==undefined ? `${rf.mean_daily_mm_per_day} mm/day (weekly mean daily rate)` : `${rf.total_mm} mm`}</td><td>${rf.observation_start_utc||"sample"} – ${rf.observation_end_utc||""}</td><td>${rf.note||I18N.en[rf.note_id]||"Regional context only."}</td></tr>` : "")
+      + `</table>`
+      + (regional.temporal_alignment === "not_aligned" ? `<p class="caution">Source observation periods do not align.</p>` : "");
+  } else html += `<p>No validated regional context is available.</p>`;
   html += `<h3>Weather status: ${w && w.is_live ? "LIVE FORECAST" : (w && w.is_sample ? (w.expired ? "EXPIRED SAVED SAMPLE" : "SAVED FORECAST SAMPLE") : "FORECAST UNAVAILABLE")}</h3>`;
   if(w && w.available && Array.isArray(w.days)){
     html += `<p>Generated: ${w.generated_at||"—"} · Valid: ${w.valid_from||"—"} to ${w.valid_until||"—"}</p>`

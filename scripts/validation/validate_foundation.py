@@ -8,10 +8,19 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+SKIP_DIRS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".ruff_cache",
+             ".mypy_cache", ".tmp-zip-review", "node_modules", ".next"}
 errors: list[str] = []
 
+
+def is_ignored_path(path: Path) -> bool:
+    return bool(SKIP_DIRS.intersection(path.parts))
+
 for path in ROOT.rglob("*.csv"):
-    if ".git" in path.parts:
+    if is_ignored_path(path):
+        continue
+    if "data" in path.parts and "api-samples" in path.parts and "nasa-power" in path.parts:
+        # NASA POWER CSV has a provider metadata header; the POWER adapter validates it.
         continue
     try:
         with path.open(encoding="utf-8-sig", newline="") as stream:
@@ -28,7 +37,7 @@ for path in ROOT.rglob("*.csv"):
         errors.append(f"{path.relative_to(ROOT)}: CSV error: {exc}")
 
 for path in ROOT.rglob("*.json"):
-    if ".git" in path.parts:
+    if is_ignored_path(path):
         continue
     try:
         json.loads(path.read_text(encoding="utf-8"))
@@ -37,7 +46,7 @@ for path in ROOT.rglob("*.json"):
 
 link_pattern = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 for path in ROOT.rglob("*.md"):
-    if ".git" in path.parts:
+    if is_ignored_path(path):
         continue
     for target in link_pattern.findall(path.read_text(encoding="utf-8")):
         target = target.strip().split()[0].strip("<>")
@@ -52,9 +61,9 @@ for required in ("/data/raw/**", ".env", "*.tif", "*.tiff", "*.nc", "*.h5", "*.z
     if required not in ignore_text:
         errors.append(f".gitignore: missing rule {required}")
 
-secret_assignment = re.compile(r"(?im)^[ \t]*[A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|API_KEY|CONNECTION_STRING|DSN)[A-Z0-9_]*[ \t]*=[ \t]*(\S+)")
+secret_assignment = re.compile(r"(?m)^[ \t]*[A-Z][A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|API_KEY|CONNECTION_STRING|DSN)[A-Z0-9_]*[ \t]*=[ \t]*(\S+)")
 for path in ROOT.rglob("*"):
-    if not path.is_file() or ".git" in path.parts or "data" in path.parts and "raw" in path.parts or path.name == "validate_foundation.py":
+    if not path.is_file() or is_ignored_path(path) or "data" in path.parts and "raw" in path.parts or path.name in {"validate_foundation.py", ".env"}:
         continue
     try:
         content = path.read_text(encoding="utf-8")

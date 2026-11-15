@@ -1,29 +1,31 @@
-# System overview
+# Implemented runtime overview
 
 ```mermaid
 flowchart LR
-  Farmer[Farmer / agronomist] --> Web[Next.js web and MapLibre]
+  Farmer[Farmer or agronomist] --> Web[Existing multilingual static web app]
   Web --> API[FastAPI /api/v1]
-  API --> Domain[Application and rotation services]
-  Domain --> DB[(PostgreSQL + PostGIS)]
-  Domain --> Jobs[Redis and Celery jobs]
-  Jobs --> Workers[Provider, GIS and inference workers]
-  Workers --> Sources[SMAP / GPM / Landsat / terrain files]
-  Workers --> APIs[NASA POWER / Meteomatics]
-  Workers --> Storage[Object storage and COG assets]
-  Workers --> Registry[Versioned model registry]
-  API --> Tiles[Map tile service]
-  Tiles --> Storage
+  API --> Service[Analysis service]
+  Service --> Features[FeatureStore: real or explicit demo features]
+  Service --> Rules[Existing rule-based rotation engine]
+  API --> SQLite[(SQLAlchemy + SQLite)]
+  API --> Context[Sanitized regional context JSON]
+  Context --> SMAP[SMAP regional summary]
+  Context --> GPM[GPM regional summary]
+  API --> Weather[Meteomatics adapter]
+  Weather --> Live[Live provider when configured]
+  Weather --> Sample[Saved sample in demo mode only]
+  API --> Layers[SRTM slope PNG + metadata]
+  ML[K-Means tools: not trained] -. optional later .-> Features
 ```
 
-## Runtime boundaries
+## Active runtime
 
-Frontend owns map interaction, forms, charts, and presentation. The API validates/authorizes requests, coordinates services, and publishes stable contracts. PostgreSQL/PostGIS stores identity, field geometries, catalog/asset metadata, job/prediction/rotation records and audit events; raster binaries stay in file/object storage. Redis/Celery handles bounded asynchronous work. GIS modules validate and derive source-aligned assets. ML modules version datasets, features, models, metrics and explanations. Provider adapters are limited to the six locked MVP sources.
+The existing static frontend is served by FastAPI. The API validates inputs and calls the original crop rotation engine. It reads the nearest validated point from `data/features/features.json` in real mode; when missing, it returns `insufficient_data`. The explicit demo launcher selects the supplied example row and the UI keeps a persistent demo banner.
 
-## Data flow
+SQLAlchemy persists requests/results and metadata in SQLite. The context route serves safe SMAP/GPM summaries without treating them as field features. Terrain layers are static PNG files whose bounds/source/date/resolution come from metadata. Meteomatics calls are server-side; a saved response can be used only when demo mode is enabled. NASA POWER can parse a local saved CSV or use the existing configured live option.
 
-Farmer field/history → catalog and coverage lookup → local/object asset or approved API request → source QA → interim processing → validated processed indicators → model-ready features → versioned inference → agronomic hard constraints and rotation ranking → evidence and limitations → map/dashboard/report. Results retain source, observation date, quality, scale, processing version, model version and review state.
+The separate K-Means package is intended to group real environmental feature rows. It is not used by rotation recommendations and has no trained artifacts at present.
 
-## Team boundaries
+## Preserved architecture artifacts
 
-Four ownership areas cover web/map, API/services, database/infrastructure, and data/GIS/AI. Shared API, layer, dataset, feature and crop schemas are reviewed by affected owners. See `docs/development/folder-ownership.md`.
+Older ADRs and infrastructure docs describe a larger future architecture, including Next.js, PostGIS, Redis/Celery, object storage and deployment targets. Those are retained as project history. They are not active hackathon MVP dependencies and were not introduced into this runtime.

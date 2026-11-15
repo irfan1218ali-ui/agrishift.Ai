@@ -1,8 +1,7 @@
 # Meteomatics Weather API
 
-- **Purpose/variables:** current conditions, hourly forecast, rain, temperature, humidity, wind and weather alerts; exact products/parameters to be selected.
-- **Resolution/temporal:** provider/product-dependent; preserve forecast issue time, valid time, lead time, units and coverage.
-- **Access/status:** Meteomatics Weather API; access pending; no request made. Credentials must remain backend-only and be stored in a secret manager outside Git.
-- **Storage:** only sanitized samples under `data/api-samples/meteomatics/`; do not store credentials or private farmer requests.
-- **Processing/quality:** validate response schema, units, timestamps/time zone, missingness, forecast lead and provider errors; record retrieval/issue times and cache expiry.
-- **Limitations/model/map:** forecast uncertainty and provider terms apply. Candidate short-term risk input and farmer-facing forecast layer, not historical climate truth.
+- **Observed response:** saved hourly JSON with `t_2m:C`, `precip_1h:mm`, `relative_humidity_2m:p`, and `wind_speed_10m:ms`; generated 2026-11-15 07:20:04 UTC for one Hyderabad-area coordinate.
+- **Status:** parser and daily summaries validated. No live API request was made; credentials are absent. Sanitized demo copy removes the account identifier.
+- **Processing:** joined by UTC timestamp and summarizes daily maximum/minimum temperature, rainfall sum, mean humidity, and maximum wind. Validity dates and expiry are returned.
+- **Mode behavior:** a saved sample is available only in demo mode and has `is_sample=true`, `is_live=false`; real mode requires live success or reports unavailable.
+- **Limitations:** forecast is time-bound, not historical climate truth, and is not part of crop-rotation scoring.

@@ -79,7 +79,8 @@ def fetch_meteomatics(lat: float, lon: float, user: str, password: str,
     return parse_meteomatics(payload)
 
 
-def _load_sample(samples_dir: Path, today: date, sample_file: Optional[Path] = None) -> Optional[dict]:
+def _load_sample(samples_dir: Path, today: date, sample_file: Optional[Path] = None,
+                 now_utc: Optional[datetime] = None) -> Optional[dict]:
     path = Path(sample_file) if sample_file else Path(samples_dir) / "meteomatics_sample.json"
     if not path.is_file():
         return None
@@ -100,7 +101,7 @@ def _load_sample(samples_dir: Path, today: date, sample_file: Optional[Path] = N
             return None
         if not parsed["days"]:
             return None
-        now = datetime.now(timezone.utc)
+        now = now_utc or datetime.now(timezone.utc)
         end_dt = None
         if valid_until:
             try:
@@ -138,8 +139,9 @@ def get_weather(lat: float, lon: float, *, user: str, password: str, samples_dir
                 return info
         except Exception:
             pass
-    sample = _load_sample(samples_dir, now.date(), sample_file)
-    if sample:
-        return sample
+    if demo_mode:
+        sample = _load_sample(samples_dir, now.date(), sample_file, now)
+        if sample:
+            return sample
     return {"available": False, "source": "meteomatics", "is_live": False, "is_sample": False,
             "expired": False, "hourly": [], "days": []}

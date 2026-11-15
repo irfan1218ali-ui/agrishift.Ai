@@ -7,6 +7,26 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]            # .../agrishift
+
+
+def _load_local_env() -> None:
+    """Load simple KEY=VALUE settings without overriding variables supplied by the shell."""
+    env_file = ROOT / ".env"
+    if not env_file.is_file():
+        return
+    for raw in env_file.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key, value = key.strip(), value.strip()
+        if key and key not in os.environ:
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1]
+            os.environ[key] = value
+
+
+_load_local_env()
 ENGINE_DIR = ROOT / "services" / "rotation-engine"
 if str(ENGINE_DIR) not in sys.path:
     sys.path.insert(0, str(ENGINE_DIR))
@@ -60,9 +80,10 @@ def get_settings() -> Settings:
     if power_csv is None:
         candidates = sorted((root / "data" / "api-samples" / "nasa-power").glob("POWER_Point_Daily_*.csv"))
         power_csv = candidates[0] if candidates else None
-    meteomatics_sample = Path(env(
-        "METEOMATICS_SAMPLE_FILE", str(root / "data" / "api-samples" / "meteomatics" / "json.json")
-    ))
+    demo_weather_sample = root / "data" / "api-samples" / "meteomatics" / "demo_sample.example.json"
+    if not demo_weather_sample.is_file():
+        demo_weather_sample = root / "data" / "api-samples" / "meteomatics" / "json.json"
+    meteomatics_sample = Path(env("METEOMATICS_SAMPLE_FILE", str(demo_weather_sample)))
     return Settings(
         root=root,
         demo_mode=demo,

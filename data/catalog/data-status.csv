@@ -1,7 +1,7 @@
 dataset_id,provider,status,status_date,validation_note
-nasa-smap-spl4smgp-v008-hyderabad,NASA SMAP,VALIDATION_PENDING,,Files reported in local Downloads folder; not inspected
-nasa-gpm-3imergdf-v07-hyderabad,NASA GPM IMERG,VALIDATION_PENDING,,Two product exports found in repository raw folder; contents not inspected
-usgs-landsat-c2-l2-lc08-151043-20250922,USGS/NASA Landsat,REGISTERED,,User reports downloaded or being organized; local scene files not located
-nasa-srtm-nasadem-hyderabad,NASA SRTM/NASADEM,NOT_STARTED,,Pending
-nasa-power-climate,NASA POWER,API_ACCESS_PENDING,,No API request made
-meteomatics-weather,Meteomatics,API_ACCESS_PENDING,,No API request made
+nasa-smap-spl4smgp-v008-hyderabad,NASA SMAP,VALIDATED_CONTEXT_ONLY,2026-11-15,56 surface and 56 root-zone rasters read and summarized; regional context only
+nasa-gpm-3imergdf-v07-hyderabad,NASA GPM IMERG,VALIDATED_CONTEXT_ONLY,2026-11-15,NetCDF and GeoTIFF agree in grid and units; weekly mean daily rate only
+usgs-landsat-c2-l2-lc08-151043-20250922,USGS/NASA Landsat,ASSETS_MISSING,2026-11-15,Scene folder has manifest/instructions only; expected SR ST QA_PIXEL and MTL files absent
+nasa-srtm-hyderabad,NASA SRTM,VALIDATED_SLOPE_DERIVED,2026-11-15,DEM metadata validated and slope raster/PNG generated; no drainage diagnosis
+nasa-power-climate,NASA POWER,SAVED_CSV_VALIDATED,2026-11-15,2015-2025 daily CSV parsed including missing markers and monthly summaries
+meteomatics-weather,Meteomatics,SAVED_SAMPLE_VALIDATED_NOT_LIVE,2026-11-15,Four hourly parameters parsed; saved response is not live and is excluded from real mode

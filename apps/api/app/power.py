@@ -54,6 +54,7 @@ def summarize(param: dict, heat_threshold: float = HEAT_THRESHOLD_C) -> Optional
     Missing-value days (-999) are skipped. Returns None unless T2M_MAX covers all 12 months.
     """
     tmax = param.get("T2M_MAX") or {}
+    tmin = param.get("T2M_MIN") or {}
     heat_by_ym: Dict[tuple, int] = defaultdict(int)
     tmax_vals: Dict[int, list] = defaultdict(list)
     for date_s, v in tmax.items():
@@ -69,6 +70,10 @@ def summarize(param: dict, heat_threshold: float = HEAT_THRESHOLD_C) -> Optional
         heat_years[m].append(n)
     heat = {m: sum(heat_years[m]) / len(heat_years[m]) for m in range(1, 13)}
     tmax_mean = {m: sum(tmax_vals[m]) / len(tmax_vals[m]) for m in range(1, 13)}
+    tmin_vals: Dict[int, list] = defaultdict(list)
+    for date_s, v in tmin.items():
+        if _valid(v) and len(date_s) == 8:
+            tmin_vals[int(date_s[4:6])].append(float(v))
 
     rain_ym: Dict[tuple, float] = defaultdict(float)
     for date_s, v in (param.get("PRECTOTCORR") or {}).items():
@@ -78,6 +83,8 @@ def summarize(param: dict, heat_threshold: float = HEAT_THRESHOLD_C) -> Optional
     for (y, m), total in rain_ym.items():
         rain_years[m].append(total)
     out = {"heat_days_40c_by_month": heat, "tmax_mean_by_month": tmax_mean}
+    if set(tmin_vals) == set(range(1, 13)):
+        out["tmin_mean_by_month"] = {m: sum(tmin_vals[m]) / len(tmin_vals[m]) for m in range(1, 13)}
     if set(rain_years) == set(range(1, 13)):
         out["rain_mm_by_month"] = {m: sum(rain_years[m]) / len(rain_years[m]) for m in range(1, 13)}
 
@@ -85,6 +92,9 @@ def summarize(param: dict, heat_threshold: float = HEAT_THRESHOLD_C) -> Optional
         vals = [float(v) for v in (param.get(key) or {}).values() if _valid(v)]
         if vals:
             out[name] = sum(vals) / len(vals)
+    solar = [float(v) for v in (param.get("ALLSKY_SFC_SW_DWN") or {}).values() if _valid(v)]
+    if solar:
+        out["solar_radiation_mean"] = sum(solar) / len(solar)
     return out
 
 

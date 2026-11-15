@@ -10,7 +10,7 @@ EXPECTED_IDS = {
     "nasa-smap-spl4smgp-v008-hyderabad",
     "nasa-gpm-3imergdf-v07-hyderabad",
     "usgs-landsat-c2-l2-lc08-151043-20250922",
-    "nasa-srtm-nasadem-hyderabad",
+    "nasa-srtm-hyderabad",
     "nasa-power-climate",
     "meteomatics-weather",
 }
@@ -18,6 +18,8 @@ EXPECTED_ADAPTERS = {"smap", "gpm_imerg", "landsat", "terrain", "nasa_power", "m
 ALLOWED_STATUSES = {
     "NOT_STARTED", "DOWNLOADED", "REGISTERED", "VALIDATION_PENDING", "VALIDATED",
     "PROCESSING_READY", "API_ACCESS_PENDING", "API_ACCESS_CONFIRMED", "BLOCKED",
+    "VALIDATED_CONTEXT_ONLY", "ASSETS_MISSING", "VALIDATED_SLOPE_DERIVED",
+    "SAVED_CSV_VALIDATED", "SAVED_SAMPLE_VALIDATED_NOT_LIVE",
 }
 errors: list[str] = []
 
@@ -92,7 +94,9 @@ for required_path in required_paths:
     if not (ROOT / required_path).exists():
         errors.append(f"required six-source architecture path is missing: {required_path}")
 
-for directory in (p for p in ROOT.rglob("*") if p.is_dir() and ".git" not in p.parts):
+ignored_dirs = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".ruff_cache",
+                ".mypy_cache", ".tmp-zip-review", "node_modules", ".next"}
+for directory in (p for p in ROOT.rglob("*") if p.is_dir() and not ignored_dirs.intersection(p.parts)):
     readme = directory / "README.md"
     if not readme.exists():
         errors.append(f"folder has no purpose/ownership README: {directory.relative_to(ROOT)}")

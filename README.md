@@ -1,39 +1,50 @@
 # AgriShift AI
 
-Farmer-centered crop-rotation decision support for NASA Space Apps Challenge “Field Shift: Adapting Farms with NASA Data.” It will let farmers compare their current rotation with alternatives and review evidence, risks, uncertainty, limitations, and local expert review requirements.
+AgriShift AI is a multilingual crop-rotation decision-support prototype for the Hyderabad, Sindh pilot. It combines a rule-based rotation engine with evidence and uncertainty summaries. It does not diagnose crop disease, predict yield, or replace a local agronomist.
 
-## Locked MVP sources
+## Current project status
 
-Only six sources are in the MVP: NASA SMAP, NASA GPM IMERG, USGS Landsat 8/9 Collection 2 Level-2, NASA SRTM/NASADEM, NASA POWER API, and Meteomatics Weather API. See [the six-source strategy](docs/architecture/six-source-strategy.md). Other candidate sources are listed as future, not MVP, in [excluded datasets](docs/future-enhancements/excluded-datasets.md).
+- The original ZIP source is preserved and documented in [`docs/archive/agrishift-zip-code-documentation.md`](docs/archive/agrishift-zip-code-documentation.md).
+- The FastAPI API, static farmer interface, rotation engine, SQLite persistence, source manifests, SRTM slope overlay, regional SMAP/GPM summary, and guarded feature/K-Means utilities are present.
+- The requested Landsat scene bundle is missing its actual raster and MTL files. No real `features.json` can be produced and no K-Means model or metrics have been created.
+- The integrated demo can run in explicit demo mode. It uses the supplied, clearly marked example feature row and a saved Meteomatics response. The page displays `DEMO DATA — NOT REAL ENVIRONMENTAL ANALYSIS` persistently.
+- Release verdict: **NOT READY for real environmental recommendations** until the Landsat scene is supplied and the real feature workflow, model, and acceptance scenarios pass.
 
-## Current data status
+See [`README_FINAL_DEMO.md`](README_FINAL_DEMO.md), [`docs/data/source-inventory.md`](docs/data/source-inventory.md), and [`docs/audit/test-results-step-2.md`](docs/audit/test-results-step-2.md) for setup, results, and known blockers.
 
-- SMAP SPL4SMGP V008: located in `C:/Users/HP/Downloads/smap dataset`; validation pending.
-- GPM IMERG GPM_3IMERGDF V07 Final Run: two files exist in `data/raw/gpm-imerg/`; not inspected or validated.
-- Landsat scene LC08_L2SP_151043_20250922_20250930_02_T1: user reports downloaded or being organized; matching scene files were not located in the scanned project, Downloads, Desktop, or Documents folders.
-- SRTM/NASADEM: not started. NASA POWER and Meteomatics API access: pending.
+## Run the local demo
 
-See [dataset catalog](data/catalog/datasets.csv), [status catalog](data/catalog/data-status.csv), and [data management](docs/data/data-management.md).
+Use Python 3.11. From the repository root in PowerShell:
 
-## Architecture
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.lock.txt
+python scripts\data\create_sanitized_weather_sample.py
+python scripts\start_demo.py
+```
 
-Next.js/TypeScript web, FastAPI/Python API, PostgreSQL/PostGIS, Redis/Celery for bounded async work, object storage for raster assets, and separate geospatial/ML modules. SMAP, GPM, Landsat and terrain adapters consume local files or later object-storage assets. NASA POWER and Meteomatics are the only active runtime external API adapters.
+Open `http://127.0.0.1:8000`. `scripts/start_demo.py` explicitly selects demo mode and the supplied example features unless `DEMO_MODE` or `FEATURES_FILE` was explicitly set in the shell. Never present this demo as a real environmental analysis.
 
-- `apps/web/`: map, forms, charts, API client.
-- `apps/api/`: versioned REST API, services and six source adapters.
-- `database/`: schema artifacts, migrations, diagrams and dictionary.
-- `data/`: catalog, raw/interim/processed/model-ready zones, manifests and crop templates.
-- `geospatial/`, `ml/`, `services/`: processing, model lifecycle and domain services.
-- `docs/development/folder-ownership.md`: four ownership areas and PR contracts.
+To start the API in real mode, set `DEMO_MODE=false` and use `uvicorn app.main:app --app-dir apps/api --host 127.0.0.1 --port 8000`. Until `data/features/features.json` has been generated from the real Landsat scene, the analysis endpoint correctly returns `insufficient_data`.
 
-See the [expanded project tree](docs/architecture/repository-tree.md).
+## Checks
 
-See the [expanded repository tree](docs/architecture/repository-tree.md).
+```powershell
+python -m pytest -q
+ruff check .
+python -m compileall -q -x '\\.venv' .
+```
 
-## Limitations and workflow
+## Project map
 
-Architecture stage only: no application feature implementation, provider calls, data processing, model training, predictions, recommendations, or migrations. Regional SMAP/GPM/POWER are context, not field measurements. Landsat needs QA_PIXEL and product scale/offset checks. Crop values require cited evidence and expert review. Keep original source data and credentials out of Git. See [team boundaries](docs/development/team-boundaries.md), [coding standards](docs/development/coding-standards.md), and [phases](docs/development/phases.md).
+- `apps/api/app/`: FastAPI routes, input schemas, feature reading, NASA POWER and Meteomatics adapters, regional context, and SQLite persistence.
+- `apps/web/index.html`: existing multilingual farmer and expert views, connected to the API.
+- `services/rotation-engine/`: existing crop-rule loading and three-strategy rotation logic.
+- `scripts/data/`: source discovery, validation, manifests, regional summary, terrain overlay, and saved-sample sanitation.
+- `scripts/build_real_features.py`: Landsat/SRTM/POWER/SMAP/GPM point builder; fails closed if required Landsat assets are absent.
+- `ml/clustering/`: real-row validation, K-Means training, evaluation, and prediction; no example-data fallback.
+- `data/manifests/`: checksummed source inventory without developer-specific absolute paths.
+- `docs/`: architecture, source inventory, API/database notes, audit, limitations, and demo guide.
 
-## Next steps
-
-Review architecture, then allocate four ownership areas. Validate existing SMAP/GPM assets against product metadata and record only measured facts in manifests. This restructure does not reorganize original source files.
+The full original ZIP code inventory is in `docs/archive/agrishift-zip-code-documentation.md`.

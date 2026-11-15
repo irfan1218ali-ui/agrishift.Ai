@@ -99,11 +99,11 @@ def normalize(raw: dict, min_cloud_free: float,
             heat = _month_dict(fb.get("heat_days_40c_by_month"))
     if heat is not None:
         f["heat_days_40c_by_month"] = heat
-        for k in ("tmax_mean_by_month", "rain_mm_by_month"):
+        for k in ("tmin_mean_by_month", "tmax_mean_by_month", "rain_mm_by_month"):
             md = _month_dict(power.get(k))
             if md is not None:
                 f[k] = md
-        for k in ("rh_mean", "wind_mean"):
+        for k in ("rh_mean", "wind_mean", "solar_radiation_mean"):
             if _num(power.get(k)) is not None:
                 f[k] = _num(power[k])
         sources.append("power")

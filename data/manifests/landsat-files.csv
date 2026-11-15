@@ -1,1 +1,1 @@
-file_name,relative_path,scene_id,acquisition_date,component,format,crs,width,height,pixel_size,nodata,scale,offset,checksum,validation_status,notes
+file_name,relative_path,provider,product,version,variable,observation_datetime,format,crs,bounds,resolution,unit,nodata,minimum,maximum,mean,sha256,validation_status,notes

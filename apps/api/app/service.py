@@ -3,12 +3,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Callable, Dict, Optional
+from typing import Callable, Optional
 
 from .config import Settings, get_settings
 from .features import FeatureStore
 from . import power as power_mod
 from . import weather as weather_mod
+from . import regional_context as regional_context_mod
 from .schemas import AnalyzeRequest
 
 from rotation_engine import load_crops, recommend  # noqa: E402  (path set in config.py)
@@ -25,6 +26,7 @@ class Deps:
     store: FeatureStore
     weather_fn: Callable[[float, float], dict]
     power_fn: Callable[[float, float], Optional[dict]]
+    regional_context_fn: Callable[[], dict]
 
 
 def build_deps(settings: Optional[Settings] = None) -> Deps:
@@ -44,7 +46,12 @@ def build_deps(settings: Optional[Settings] = None) -> Deps:
             return power_mod.get_monthly_features(lat, lon, s.cache_dir, s.samples_dir)
         return None
 
-    return Deps(settings=s, crops=crops, store=store, weather_fn=weather_fn, power_fn=power_fn)
+    def regional_context_fn() -> dict:
+        return regional_context_mod.get_regional_context(
+            s.root / "data" / "processed" / "model-features" / "regional_context.json")
+
+    return Deps(settings=s, crops=crops, store=store, weather_fn=weather_fn,
+                 power_fn=power_fn, regional_context_fn=regional_context_fn)
 
 
 def _insufficient(reason_id: str, demo_mode: bool = False) -> dict:
@@ -55,17 +62,6 @@ def _insufficient(reason_id: str, demo_mode: bool = False) -> dict:
 
 def _in_pilot_area(s: Settings, lat: float, lon: float) -> bool:
     return s.min_lat <= lat <= s.max_lat and s.min_lon <= lon <= s.max_lon
-
-
-def _regional_context(f: dict) -> dict:
-    ctx: Dict[str, dict] = {}
-    if "smap_surface_mean" in f:
-        ctx["soil_moisture"] = {"value": round(f["smap_surface_mean"], 3), "unit": "m3/m3",
-                                "resolution_km": 9, "note_id": "regional_note_001"}
-    if "gpm_total_mm" in f:
-        ctx["rainfall"] = {"total_mm": round(f["gpm_total_mm"], 1), "resolution_km": 10,
-                           "note_id": "regional_note_002"}
-    return ctx
 
 
 def analyze(req: AnalyzeRequest, deps: Deps, today: Optional[date] = None) -> dict:
@@ -143,6 +139,7 @@ def analyze(req: AnalyzeRequest, deps: Deps, today: Optional[date] = None) -> di
         option["confidence_score"] = score
         option["confidence_dots"] = dots
         confidence.append({"option_id": option["id"], "score": score, "dots": dots, "breakdown": parts})
+    regional_payload = deps.regional_context_fn()
     return {
         "status": "ok",
         "is_demo": bool(s.demo_mode and deps.store.path.name.endswith("example.json")),
@@ -157,7 +154,9 @@ def analyze(req: AnalyzeRequest, deps: Deps, today: Optional[date] = None) -> di
         "field_context": {"vegetation_condition": result["field_health"],
                           "cluster_id": None, "cluster_label": None,
                           "cluster_interpretation": "Environmental clustering unavailable; no K-Means model was trained."},
-        "regional_context": _regional_context(feats),
+        "regional_context": regional_payload.get("regional_context", {}) if regional_payload.get("available") else {},
+        "regional_context_status": regional_payload.get("status", "unavailable"),
+        "temporal_alignment": regional_payload.get("temporal_alignment"),
         "forecast": {"available": forecast_ok, "source": "meteomatics",
                      "is_live": bool(forecast.get("is_live")),
                      "is_sample": bool(forecast.get("is_sample")),

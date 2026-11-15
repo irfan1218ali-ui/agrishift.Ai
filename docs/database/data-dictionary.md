@@ -1,32 +1,12 @@
-# Database data dictionary (proposed)
+# SQLite data dictionary
 
-| Entity | Purpose / key relationships |
-|---|---|
-| users | Identity, preferences, consent; membership in farms |
-| farms | Tenant container, locale and ownership |
-| fields | Farm-linked operational metadata |
-| field_boundaries | Versioned PostGIS polygons and effective dates |
-| soil_observations | Field-linked lab/field values with method, units, source, date |
-| crop_profiles | Curated crop identity and evidence reference |
-| crop_history | Field-season crop events and provenance |
-| crop_compatibility | Evidence-backed predecessor/family constraints |
-| farmer_priorities | Versioned preferences/constraints with consent |
-| dataset_catalog | Product/version/variables/licenses/resolution |
-| provider_status | Provider health observations and times |
-| earth_observations | Normalized observation metadata |
-| raster_assets | Object URI, footprint, CRS, scale, checksum, lineage |
-| weather_forecasts | Provider, issue/valid times, coverage, variables |
-| processing_jobs | Idempotent status, config/version, errors and times |
-| model_registry | Immutable versions, schema, metrics, checksum |
-| model_predictions | Inputs/data/model versions, outputs, uncertainty, explanation |
-| rotation_scenarios | Field, baseline/alternative, objective, version, review |
-| rotation_scores | Criteria scores, evidence IDs, weights, uncertainty |
-| rotation_explanations | Reasons, benefits, risks, limitations, sources |
-| expert_reviews | Reviewer qualification, disposition, comments, times |
-| farmer_feedback | Consent-aware response linked to scenario/version |
-| reports | Generated report metadata, access scope, object URI |
-| audit_logs | Actor, action, entity, request ID, time, safe summary |
+The active ORM-free SQLAlchemy Core table definitions are in `apps/api/app/db.py`. All analysis rows are local pilot records; the app currently has guest access and does not store accounts or exact farmer identity.
 
-Use server-generated UUID primary keys (UUIDv7 if consistently supported; UUIDv4 interoperates). Store timezone-aware UTC instants (`timestamptz`). Store field geometry as `geometry(MultiPolygon, 4326)` for interchange; transform to suitable projected CRS for area/distance and preserve source versions. Prefer boundary history over destructive updates. Index foreign keys, tenant IDs, time lookup columns, and GiST on geometries/footprints; add composites from measured query plans.
+| Table | Key columns | Purpose |
+|---|---|---|
+| `analysis_requests` | `id`, `latitude`, `longitude`, `radius_m`, `current_crop`, `previous_crop`, `water_source`, `water_level`, `salinity`, `waterlogging`, `priority`, `language`, `created_at` | Captures the user-provided analysis inputs |
+| `analysis_results` | `id`, `request_id`, `feature_point_id`, `cluster_id`, `cluster_label`, `rotation_results_json`, `confidence_score`, `status`, `created_at` | Stores the complete response JSON and status; `request_id` is unique and references the request |
+| `dataset_metadata` | `id`, `provider`, `product`, `version`, `observation_start`, `observation_end`, `source_resolution`, `validation_status`, `checksum`, `metadata_json` | Dataset provenance metadata; populated as validated sources are integrated |
+| `model_runs` | `id`, `model_name`, `model_version`, `feature_schema_version`, `training_timestamp`, `metrics_json`, `artifact_path` | Model provenance; currently no trained K-Means run is present |
 
-Soft-delete user-visible records with `deleted_at` when restoration/audit is required; define hard deletion/anonymization and object cleanup for privacy requests. Immutable assets/model versions use tombstones/retention metadata. Predictions/scenarios store model, dataset, feature-schema versions, and input asset IDs. Audit access, edits, export, reviews, and admin actions; never store secrets or full sensitive geometries in audit payloads.
+SQLite creates tables through `metadata.create_all()` at app startup and as needed on reads/writes. Database paths and files are ignored by Git and excluded from release ZIPs. There are no raster BLOBs or PostgreSQL/PostGIS dependencies in the active MVP database.

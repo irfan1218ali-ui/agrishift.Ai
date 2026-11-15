@@ -38,6 +38,7 @@ def make_deps(tmp_path, features=None, weather=None, power=None, points=True):
     d = service.build_deps(settings)
     d.weather_fn = weather or (lambda lat, lon: {"available": True, "source": "meteomatics", "is_sample": False, "days": []})
     d.power_fn = power or (lambda lat, lon: None)
+    d.regional_context_fn = lambda: {"available": False, "status": "unavailable", "regional_context": {}}
     return d
 
 
@@ -59,8 +60,8 @@ def test_ok_response_matches_contract(tmp_path):
     assert out["analysis_method"] == "nearest_available_point"
     assert out["disclaimer_id"] == "disclaimer_001"
     assert [o["id"] for o in out["options"]] == ["existing", "balanced", "priority"]
-    assert out["regional_context"]["soil_moisture"]["note_id"] == "regional_note_001"
-    assert out["regional_context"]["rainfall"]["total_mm"] == 18.2
+    assert out["regional_context"] == {}  # test feature values never impersonate validated regional context
+    assert out["regional_context_status"] == "unavailable"
     json.dumps(out)                      # must be JSON serialisable
 
 
