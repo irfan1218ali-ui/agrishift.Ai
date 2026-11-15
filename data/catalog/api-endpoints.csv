@@ -1,0 +1,3 @@
+provider,endpoint_name,environment,base_url,method,authentication,required_parameters,optional_parameters,output_format,timeout_seconds,retry_policy,cache_duration,status,sample_response_path,notes
+NASA POWER,Climate parameter endpoint,development,https://power.larc.nasa.gov/api,,No credential configured; confirm current API docs,,,,,,,API_ACCESS_PENDING,data/api-samples/nasa-power/,No network calls performed
+Meteomatics,Weather/forecast endpoint,development,https://api.meteomatics.com,,Backend credentials required; confirm auth scheme,,,,,,,API_ACCESS_PENDING,data/api-samples/meteomatics/,No network calls performed

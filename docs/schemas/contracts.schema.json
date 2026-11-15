@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agrishift-ai.invalid/schemas/contracts.schema.json",
+  "title": "AgriShift AI architecture contracts",
+  "$defs": {
+    "DatasetSearchRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bbox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
+        "geometry": {"type": "object"},
+        "start_datetime": {"type": "string", "format": "date-time"},
+        "end_datetime": {"type": "string", "format": "date-time"},
+        "collections": {"type": "array", "items": {"type": "string"}},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 1000}
+      }
+    },
+    "ProviderHealthStatus": {"enum": ["available", "degraded", "unavailable", "unknown"]},
+    "DataAsset": {
+      "type": "object",
+      "properties": {
+        "href": {"type": ["string", "null"], "format": "uri"},
+        "media_type": {"type": ["string", "null"]},
+        "roles": {"type": "array", "items": {"type": "string"}},
+        "checksum": {"type": ["string", "null"]}
+      }
+    },
+    "ObservationMetadata": {
+      "type": "object",
+      "required": ["provider"],
+      "properties": {
+        "provider": {"type": "string"}, "product": {"type": ["string", "null"]},
+        "product_version": {"type": ["string", "null"]},
+        "observed_at": {"type": ["string", "null"], "format": "date-time"},
+        "ingested_at": {"type": ["string", "null"], "format": "date-time"},
+        "spatial_resolution_m": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "temporal_resolution": {"type": ["string", "null"]},
+        "crs": {"type": ["string", "null"]}, "quality_flags": {"type": "array", "items": {"type": "string"}},
+        "source_metadata": {"type": "object"}
+      }
+    },
+    "TileLayerMetadata": {
+      "type": "object", "required": ["id", "name", "category", "provider", "product", "variable", "layer_type", "availability_status"],
+      "properties": {
+        "id": {"type": "string"}, "name": {"type": "string"}, "category": {"type": "string"},
+        "provider": {"type": "string"}, "product": {"type": "string"}, "variable": {"type": "string"},
+        "layer_type": {"enum": ["raster", "vector", "fill", "line", "symbol"]},
+        "tile_url": {"type": ["string", "null"], "format": "uri"}, "legend": {},
+        "default_opacity": {"type": "number", "minimum": 0, "maximum": 1},
+        "observation_date": {"type": ["string", "null"], "format": "date-time"},
+        "processing_date": {"type": ["string", "null"], "format": "date-time"},
+        "source_resolution": {"type": ["string", "null"]}, "display_resolution": {"type": ["string", "null"]},
+        "temporal_resolution": {"type": ["string", "null"]}, "coverage": {},
+        "quality_status": {"enum": ["unknown", "pending", "valid", "warning", "invalid"]},
+        "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "attribution": {"type": ["string", "null"]}, "limitation": {"type": ["string", "null"]},
+        "metadata_url": {"type": ["string", "null"], "format": "uri"},
+        "availability_status": {"enum": ["available", "partial", "unavailable", "processing", "unknown"]}
+      }
+    },
+    "TrainingDatasetManifest": {"type": "object", "required": ["dataset_version", "feature_schema", "sources"], "properties": {"dataset_version": {"type": "string"}, "feature_schema": {"type": "string"}, "label_schema": {"type": ["string", "null"]}, "sources": {"type": "array", "items": {"type": "string"}}, "split_strategy": {"type": ["string", "null"]}, "created_at": {"type": "string", "format": "date-time"}, "review_status": {"enum": ["draft", "under_review", "approved", "rejected"]}}},
+    "ModelMetadata": {"type": "object", "required": ["model_id", "version", "task", "artifact_checksum", "feature_schema_version"], "properties": {"model_id": {"type": "string"}, "version": {"type": "string"}, "task": {"type": "string"}, "artifact_uri": {"type": "string"}, "artifact_checksum": {"type": "string"}, "feature_schema_version": {"type": "string"}, "dataset_version": {"type": "string"}, "created_at": {"type": "string", "format": "date-time"}, "metrics": {"type": "object"}}},
+    "ModelConfidence": {"type": "object", "required": ["value", "method", "limitations"], "properties": {"value": {"type": ["number", "null"], "minimum": 0, "maximum": 1}, "method": {"type": "string"}, "calibrated": {"type": "boolean"}, "limitations": {"type": "array", "items": {"type": "string"}}}},
+    "ModelMetrics": {"type": "object", "required": ["evaluation_dataset_version", "metrics"], "properties": {"evaluation_dataset_version": {"type": "string"}, "metrics": {"type": "object", "additionalProperties": {"type": "number"}}, "evaluated_at": {"type": "string", "format": "date-time"}, "evaluation_protocol": {"type": "string"}}},
+    "ModelArtifact": {"type": "object", "required": ["uri", "checksum", "format", "model_version"], "properties": {"uri": {"type": "string"}, "checksum": {"type": "string"}, "format": {"type": "string"}, "model_version": {"type": "string"}, "signature": {"type": ["string", "null"]}}},
+    "FeatureSchema": {"type": "object", "required": ["schema_version", "features"], "properties": {"schema_version": {"type": "string"}, "features": {"type": "array", "items": {"type": "object", "required": ["name", "dtype", "unit"], "properties": {"name": {"type": "string"}, "dtype": {"type": "string"}, "unit": {"type": "string"}, "nullable": {"type": "boolean"}, "source": {"type": "string"}}}}}},
+    "DatasetVersion": {"type": "object", "required": ["dataset_id", "version", "manifest_uri"], "properties": {"dataset_id": {"type": "string"}, "version": {"type": "string"}, "manifest_uri": {"type": "string"}, "content_checksum": {"type": "string"}, "created_at": {"type": "string", "format": "date-time"}}},
+    "ExplanationResult": {"type": "object", "required": ["method", "summary", "limitations"], "properties": {"method": {"type": "string"}, "summary": {"type": "string"}, "attributions": {"type": "array", "items": {"type": "object", "properties": {"feature": {"type": "string"}, "contribution": {"type": ["number", "null"]}}}}, "limitations": {"type": "array", "items": {"type": "string"}}}},
+    "ModelPrediction": {"type": "object", "required": ["model_version", "feature_schema_version", "created_at", "confidence"], "properties": {"model_version": {"type": "string"}, "feature_schema_version": {"type": "string"}, "dataset_versions": {"type": "array", "items": {"type": "string"}}, "created_at": {"type": "string", "format": "date-time"}, "output": {"type": "object"}, "confidence": {"$ref": "#/$defs/ModelConfidence"}, "explanation": {"type": ["object", "null"]}}},
+    "CropKnowledgeRecord": {"type": "object", "required": ["crop_id", "evidence_source", "expert_verification_status"], "properties": {"crop_id": {"type": "string"}, "crop_family": {"type": ["string", "null"]}, "season": {"type": ["string", "null"]}, "sowing_window": {"type": ["object", "null"]}, "harvest_window": {"type": ["object", "null"]}, "duration_days": {"type": ["integer", "null"], "minimum": 0}, "temperature_limits_c": {"type": ["array", "null"], "items": {"type": ["number", "null"]}, "minItems": 2, "maxItems": 2}, "water_demand": {}, "drought_tolerance": {}, "salinity_tolerance": {}, "waterlogging_tolerance": {}, "soil_ph_range": {"type": ["array", "null"], "items": {"type": ["number", "null"]}, "minItems": 2, "maxItems": 2}, "root_depth_cm": {"type": ["number", "null"]}, "nitrogen_fixing_status": {"type": ["string", "null"]}, "residue_contribution": {}, "pest_family": {"type": ["string", "null"]}, "machinery_requirement": {}, "market_availability": {}, "evidence_source": {"type": "string"}, "expert_verification_status": {"enum": ["unknown", "unreviewed", "reviewed", "approved", "rejected"]}}}
+  }
+}

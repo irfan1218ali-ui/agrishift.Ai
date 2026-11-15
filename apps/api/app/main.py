@@ -1,0 +1,132 @@
+"""AgriShift AI - FastAPI app.   Run:  uvicorn app.main:app --app-dir apps/api --port 8000"""
+from __future__ import annotations
+
+from functools import lru_cache
+import json
+from uuid import uuid4
+
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+
+from .config import get_settings
+from .schemas import AnalyzeRequest
+from . import service
+from . import db
+
+LAYER_NAMES = {"ndvi", "ndmi", "bsi", "slope"}
+
+app = FastAPI(title="AgriShift AI API", version="1.0.0",
+              description="Rule-based crop rotation options for the Hyderabad (Sindh) pilot. No trained ML model.")
+
+_settings = get_settings()
+app.add_middleware(CORSMiddleware, allow_origins=_settings.cors_origins, allow_methods=["GET", "POST"],
+                   allow_headers=["*"])
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    request_id = str(uuid4())
+    request.state.request_id = request_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+def _error(request: Request, status_code: int, code: str, message: str, details=None):
+    return JSONResponse(status_code=status_code, content={"error": {
+        "code": code, "message": message, "request_id": getattr(request.state, "request_id", str(uuid4())),
+        "details": details or {},
+    }})
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    return _error(request, 422, "VALIDATION_ERROR", "The request contains invalid values.",
+                   {"errors": [{"location": list(e.get("loc", ())), "message": e.get("msg"),
+                                "type": e.get("type")} for e in exc.errors()]})
+
+
+@app.exception_handler(HTTPException)
+async def http_error(request: Request, exc: HTTPException):
+    code = "RESOURCE_NOT_FOUND" if exc.status_code == 404 else "DATA_NOT_AVAILABLE"
+    return _error(request, exc.status_code, code, str(exc.detail))
+
+
+@app.exception_handler(Exception)
+async def unexpected_error(request: Request, exc: Exception):
+    return _error(request, 500, "INTERNAL_ERROR", "The request could not be completed.")
+
+
+@app.on_event("startup")
+def initialize_database():
+    db.initialize()
+
+
+@lru_cache(maxsize=1)
+def deps() -> service.Deps:
+    return service.build_deps()
+
+
+@app.get("/api/v1/health")
+def health():
+    d = deps()
+    return {"status": "ok", "crops": len(d.crops), "features_available": d.store.available(),
+            "demo_mode": d.settings.demo_mode, "data_mode": "DEMO" if d.settings.demo_mode else "REAL",
+            "meteomatics_configured": bool(d.settings.meteomatics_user and d.settings.meteomatics_password)}
+
+
+@app.post("/api/v1/analyze")
+def analyze(req: AnalyzeRequest):
+    try:
+        result = service.analyze(req, deps())
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    result["analysis_id"] = db.save_analysis(req.model_dump(), result)
+    return result
+
+
+@app.get("/api/v1/crops")
+def crops():
+    return service.crops_payload(deps())
+
+
+@app.get("/api/v1/weather")
+def weather(lat: float = Query(ge=-90, le=90), lon: float = Query(ge=-180, le=180)):
+    return deps().weather_fn(lat, lon)
+
+
+@app.get("/api/v1/analyses/{analysis_id}")
+def get_analysis(analysis_id: str):
+    record = db.load_analysis(analysis_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="analysis not found")
+    return record
+
+
+@app.get("/api/v1/layers/{name}.png")
+def layer(name: str):
+    if name not in LAYER_NAMES:                       # whitelist = no path tricks
+        raise HTTPException(status_code=404, detail="unknown layer")
+    f = deps().settings.layers_dir / f"{name}.png"
+    if not f.is_file():
+        raise HTTPException(status_code=404, detail="layer not available")
+    return FileResponse(str(f), media_type="image/png")
+
+
+@app.get("/api/v1/layers/metadata")
+def layer_metadata():
+    path = deps().settings.layers_dir / "metadata.json"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="layer metadata not available")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise HTTPException(status_code=404, detail="layer metadata is invalid")
+
+
+# Serve the farmer web app (and audio/) from the same server, last so API routes win.
+if _settings.web_dir.is_dir():
+    app.mount("/", StaticFiles(directory=str(_settings.web_dir), html=True), name="web")

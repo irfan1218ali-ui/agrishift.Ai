@@ -1,0 +1,1 @@
+"""meteomatics adapter package boundary."""

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agrishift-ai.invalid/schemas/geospatial-config.schema.json",
+  "title": "Geospatial processing configuration contracts",
+  "$defs": {
+    "BoundingBox4326": {
+      "type": "array", "prefixItems": [{"type":"number","minimum":-180,"maximum":180},{"type":"number","minimum":-90,"maximum":90},{"type":"number","minimum":-180,"maximum":180},{"type":"number","minimum":-90,"maximum":90}], "minItems":4,"maxItems":4,
+      "description":"[west,south,east,north] in longitude/latitude; implementation must check west < east and south < north and define antimeridian handling."
+    },
+    "FieldPolygon": {"type":"object","required":["type","coordinates"],"properties":{"type":{"enum":["Polygon","MultiPolygon"]},"coordinates":{"type":"array"},"crs":{"const":"EPSG:4326"}},"description":"Validate topology, ring closure, coordinate range, area, and antimeridian policy in implementation."},
+    "DateRange": {"type":"object","required":["start_datetime","end_datetime"],"properties":{"start_datetime":{"type":"string","format":"date-time"},"end_datetime":{"type":"string","format":"date-time"}},"description":"Require timezone-aware UTC instants and start <= end."},
+    "RasterBand": {"type":"object","required":["band_id","variable","unit"],"properties":{"band_id":{"type":"string"},"variable":{"type":"string"},"unit":{"type":"string"},"nodata":{"type":["number","string","null"]},"scale":{"type":["number","null"]},"offset":{"type":["number","null"]}}},
+    "DerivedIndex": {"type":"object","required":["id","formula","required_bands","unit"],"properties":{"id":{"type":"string"},"formula":{"type":"string"},"required_bands":{"type":"array","items":{"type":"string"}},"unit":{"type":"string"},"quality_mask":{"type":["string","null"]}}},
+    "TileLayerMetadata": {"$ref":"contracts.schema.json#/$defs/TileLayerMetadata"},
+    "QualityThreshold": {"type":"object","required":["product","rule_id","unit","version"],"properties":{"product":{"type":"string"},"rule_id":{"type":"string"},"operator":{"enum":["<","<=","=",">=",">"]},"threshold":{"type":["number","string","boolean"]},"unit":{"type":"string"},"version":{"type":"string"},"source_reference":{"type":"string"}},"description":"Product-specific thresholds require cited provenance; no global default."}
+  }
+}

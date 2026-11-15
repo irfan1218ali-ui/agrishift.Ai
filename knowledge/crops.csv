@@ -1,0 +1,13 @@
+id,name_en,name_ur,name_sd,season,sow_start_m,sow_end_m,duration_min_m,duration_max_m,water_need,heat_tol,salinity_tol,waterlog_tol,family,n_fixing,source,verified,verified_by
+cotton,Cotton,کپاس,ڪپهه,kharif,4,6,5,7,high,good,medium,low,fibre,false,MVP plan section 4.3 (starter estimate),false,
+rice,Rice,چاول,چانور,kharif,6,7,4,5,very_high,medium,low_medium,good,cereal,false,MVP plan section 4.3 (starter estimate),false,
+mung_bean,Mung bean,مونگ,مُنگ,kharif,7,7,2,3,low,good,low,low,legume,true,MVP plan section 4.3 (starter estimate),false,
+sorghum,Sorghum,جوار,جوار,kharif,6,7,3,4,low_medium,good,medium,medium,cereal,false,MVP plan section 4.3 (starter estimate),false,
+millet,Millet,باجرہ,ٻاجهري,kharif,6,7,3,3,low,good,medium,low,cereal,false,MVP plan section 4.3 (starter estimate),false,
+sesame,Sesame,تل,ٽل,kharif,6,7,3,4,low,good,low_medium,low,oilseed,false,MVP plan section 4.3 (starter estimate),false,
+maize,Maize,مکئی,مڪئي,kharif,7,8,3,4,medium_high,medium,low,low,cereal,false,MVP plan section 4.3 (starter estimate; Jul-Aug sowing only),false,
+sunflower,Sunflower,سورج مکھی,سج مکي,kharif,7,8,3,4,medium,medium,medium,low,oilseed,false,MVP plan section 4.3 (starter estimate; Jul-Aug sowing only),false,
+wheat,Wheat,گندم,ڪڻڪ,rabi,11,12,4,5,medium,low,medium,low,cereal,false,MVP plan section 4.3 (starter estimate),false,
+chickpea,Chickpea,چنا,چڻا,rabi,10,11,4,5,very_low,low,low,very_low,legume,true,MVP plan section 4.3 (starter estimate),false,
+mustard,Mustard,سرسوں,سرنهن,rabi,10,11,4,5,low_medium,low,medium,low,oilseed,false,MVP plan section 4.3 (starter estimate),false,
+berseem,Berseem,برسیم,برسيم,rabi,10,11,5,6,medium_high,low_medium,medium,low,legume,true,MVP plan section 4.3 (starter estimate),false,

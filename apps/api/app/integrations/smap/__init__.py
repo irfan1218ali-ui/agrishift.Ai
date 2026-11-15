@@ -1,0 +1,1 @@
+"""smap adapter package boundary."""

@@ -1,0 +1,7 @@
+dataset_id,provider,status,status_date,validation_note
+nasa-smap-spl4smgp-v008-hyderabad,NASA SMAP,VALIDATION_PENDING,,Files reported in local Downloads folder; not inspected
+nasa-gpm-3imergdf-v07-hyderabad,NASA GPM IMERG,VALIDATION_PENDING,,Two product exports found in repository raw folder; contents not inspected
+usgs-landsat-c2-l2-lc08-151043-20250922,USGS/NASA Landsat,REGISTERED,,User reports downloaded or being organized; local scene files not located
+nasa-srtm-nasadem-hyderabad,NASA SRTM/NASADEM,NOT_STARTED,,Pending
+nasa-power-climate,NASA POWER,API_ACCESS_PENDING,,No API request made
+meteomatics-weather,Meteomatics,API_ACCESS_PENDING,,No API request made
