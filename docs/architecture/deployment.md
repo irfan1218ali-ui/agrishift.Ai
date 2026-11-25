@@ -1,11 +1,9 @@
-# Deployment architecture (current and target)
+# Current local deployment
 
 The verified release runs locally: Next.js on loopback port 3000, FastAPI on loopback port 8000, and SQLite at `data/agrishift.db`. No Compose services, cloud resources, or remote deployment target are required by the MVP.
 
 Do not deploy this checkout to a public host until TLS, a private expert `.env`, database backup/retention, restricted origins, and an approved hosting target are configured. No deployment credentials or target configuration are present in the current environment.
 
-The earlier enterprise target below is a future option, not an implemented or deployed environment. Keep volumes ignored; use labeled software fixtures only; do not fabricate environmental outputs.
+Start the verified local stack from the repository root with `python scripts/start_demo.py`. The launcher runs Next.js on loopback port 3000 and FastAPI on loopback port 8000, validates runtime data/model files, and initializes SQLite at `data/agrishift.db` without deleting existing analyses.
 
-Staging uses separate Azure credentials/resource group; Vercel preview web; Azure Container Apps API/workers; managed PostgreSQL/PostGIS, Azure Cache for Redis, private Blob, managed identity, Key Vault, and Application Insights/Sentry. Use labeled software fixtures only; do not fabricate environmental outputs.
-
-Production uses restricted web origins, isolated API/workers, private networking, TLS, managed identities, Key Vault, backup/restore drills, retention, and telemetry with sensitive geometry/credentials redacted. Public tile delivery must enforce authorization or publish reviewed generalized layers. GitHub Actions performs lint/schema/contract checks, dependency and secret scans, image builds, and gated deploys. Pin image digests and model versions; promote artifacts across environments. Roll back app and model independently. Set RPO/RTO and residency before production. No resources are provisioned here.
+No cloud deployment is configured in this workspace. A real deployment needs a selected host, HTTPS, restricted `CORS_ORIGINS`, persistent SQLite storage, `APP_ENV=production`, and private expert session/password-hash environment settings. The API and frontend commands and variables are listed in `README_FINAL.md`.

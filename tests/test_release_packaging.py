@@ -3,7 +3,8 @@ from scripts.package_release import ROOT, collect_files
 
 def test_release_collection_keeps_runtime_samples_and_excludes_local_or_raw_data():
     names = {f"agrishift-ai/{path.relative_to(ROOT).as_posix()}" for path in collect_files()}
-    assert "agrishift-ai/README_FINAL_DEMO.md" in names
+    assert "agrishift-ai/README_FINAL.md" in names
+    assert "agrishift-ai/README_FINAL_DEMO.md" not in names
     assert "agrishift-ai/data/features/features.example.json" in names
     assert "agrishift-ai/data/api-samples/meteomatics/demo_sample.example.json" in names
     assert "agrishift-ai/data/api-samples/meteomatics/json.json" not in names
@@ -20,3 +21,5 @@ def test_release_collection_keeps_runtime_samples_and_excludes_local_or_raw_data
     raw_tree = [name for name in names if name.startswith("agrishift-ai/data/raw/")]
     assert all(name.endswith("/README.md") for name in raw_tree)
     assert all(not name.endswith((".db", ".sqlite", ".tif", ".nc")) for name in names)
+    assert all(".playwright-mcp/" not in name for name in names)
+    assert all(not name.endswith(("-wal", "-shm", "-journal")) for name in names)

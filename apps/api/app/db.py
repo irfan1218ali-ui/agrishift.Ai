@@ -9,7 +9,7 @@ from threading import RLock
 from uuid import uuid4
 from weakref import WeakSet
 
-from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, Float, ForeignKey, Index, Integer, MetaData, String, Table, Text, UniqueConstraint, create_engine, inspect, select, text
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, Float, ForeignKey, Index, Integer, MetaData, String, Table, Text, UniqueConstraint, create_engine, event, inspect, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql import func
 
@@ -130,7 +130,17 @@ def get_engine() -> Engine:
         path = settings.root / "data" / "agrishift.db"
         path.parent.mkdir(parents=True, exist_ok=True)
         url = "sqlite:///" + path.resolve().as_posix()
-    return create_engine(url, connect_args={"check_same_thread": False})
+    engine = create_engine(url, connect_args={"check_same_thread": False})
+    event.listen(engine, "connect", _enable_sqlite_foreign_keys)
+    return engine
+
+
+def _enable_sqlite_foreign_keys(connection, _record) -> None:
+    cursor = connection.cursor()
+    try:
+        cursor.execute("PRAGMA foreign_keys=ON")
+    finally:
+        cursor.close()
 
 
 def initialize(engine: Engine | None = None) -> None:
@@ -295,24 +305,35 @@ def save_analysis(request_data: dict, response: dict, engine: Engine | None = No
     return request_id
 
 
-def load_analysis(analysis_id: str, engine: Engine | None = None) -> dict | None:
+def load_analyses(analysis_ids: list[str], engine: Engine | None = None) -> list[dict]:
+    """Load one paginated batch with its public result and review status in one query."""
+    ordered_ids = list(analysis_ids)
+    if not ordered_ids:
+        return []
     engine = engine or get_engine()
     initialize(engine)
-    statement = select(analysis_requests, analysis_results.c.rotation_results_json).join(
-        analysis_results, analysis_requests.c.id == analysis_results.c.request_id
-    ).where(analysis_requests.c.id == analysis_id)
+    statement = (select(analysis_requests, analysis_results.c.rotation_results_json,
+                        analysis_review_status.c.status.label("review_status"))
+                 .join(analysis_results, analysis_requests.c.id == analysis_results.c.request_id)
+                 .outerjoin(analysis_review_status,
+                            analysis_review_status.c.analysis_id == analysis_requests.c.id)
+                 .where(analysis_requests.c.id.in_(ordered_ids)))
     with engine.connect() as conn:
-        row = conn.execute(statement).mappings().first()
-    if row is None:
-        return None
-    with engine.connect() as conn:
-        review = conn.execute(select(analysis_review_status.c.status).where(
-            analysis_review_status.c.analysis_id == analysis_id)).first()
-    return {
-        "analysis_id": row["id"], "request": {key: row[key] for key in (
-            "latitude", "longitude", "radius_m", "previous_crop", "current_crop", "water_source",
-            "water_level", "salinity", "waterlogging", "priority", "language", "created_at"
-        )},
-        "result": json.loads(row["rotation_results_json"]),
-        "review_status": review.status if review else "not_reviewed",
+        rows = conn.execute(statement).mappings().all()
+    records = {
+        row["id"]: {
+            "analysis_id": row["id"], "request": {key: row[key] for key in (
+                "latitude", "longitude", "radius_m", "previous_crop", "current_crop", "water_source",
+                "water_level", "salinity", "waterlogging", "priority", "language", "created_at"
+            )},
+            "result": json.loads(row["rotation_results_json"]),
+            "review_status": row["review_status"] or "not_reviewed",
+        }
+        for row in rows
     }
+    return [records[analysis_id] for analysis_id in ordered_ids if analysis_id in records]
+
+
+def load_analysis(analysis_id: str, engine: Engine | None = None) -> dict | None:
+    records = load_analyses([analysis_id], engine)
+    return records[0] if records else None

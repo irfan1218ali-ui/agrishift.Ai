@@ -4,7 +4,7 @@ The API preserves the public farmer endpoints under `/api/v1` and provides the s
 
 ## Start and test
 
-Use the repository-level instructions in `README_FINAL_DEMO.md`. For backend tests from the project root, run `python -m pytest -q` using the project virtual environment.
+Use the repository-level instructions in `README_FINAL.md`. For backend tests from the project root, run `python -m pytest -q` using the project virtual environment.
 
 ## Expert account setup
 

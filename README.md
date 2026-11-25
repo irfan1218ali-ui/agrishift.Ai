@@ -12,7 +12,7 @@ AgriShift AI is a multilingual crop-rotation decision-support application for th
 
 ## Run locally
 
-Use Python 3.11 and Node.js. The startup and expert account steps are documented in [`README_FINAL_DEMO.md`](README_FINAL_DEMO.md). The integrated launcher is:
+Use Python 3.11 and Node.js. The startup and expert account steps are documented in [`README_FINAL.md`](README_FINAL.md). The integrated launcher is:
 
 ```powershell
 python scripts\start_demo.py

@@ -5,8 +5,10 @@ from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 
 from app import db, expert_api, main
+from app.config import get_settings
 from app.schemas.analyze import AnalyzeRequest
 
 
@@ -25,6 +27,7 @@ def client(monkeypatch, tmp_path):
     monkeypatch.setenv("EXPERT_PASSWORD_HASH", expert_api.create_password_hash("correct-horse", 100_000))
     monkeypatch.setenv("EXPERT_SESSION_SECRET", "phase-two-test-session-secret-32-bytes")
     monkeypatch.setenv("DEMO_MODE", "false")
+    expert_api.reset_login_failures()
     db.get_engine.cache_clear()
     main.deps.cache_clear()
     with TestClient(main.app, base_url="https://testserver") as test_client:
@@ -96,8 +99,52 @@ def test_expert_login_me_logout_and_secure_cookie(client):
 def test_invalid_expert_login_is_401(client):
     response = client.post("/api/v2/expert/auth/login", json={
         "email": "expert@example.test", "password": "wrong-password"})
+    unknown = client.post("/api/v2/expert/auth/login", json={
+        "email": "unknown@example.test", "password": "wrong-password"})
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "AUTHENTICATION_REQUIRED"
+    assert unknown.status_code == response.status_code
+    assert unknown.json()["error"]["message"] == response.json()["error"]["message"]
+
+
+def test_expert_login_rate_limit_is_structured(client):
+    for _ in range(expert_api.LOGIN_FAILURE_LIMIT):
+        response = client.post("/api/v2/expert/auth/login", json={
+            "email": "expert@example.test", "password": "wrong-password"})
+        assert response.status_code == 401
+    limited = client.post("/api/v2/expert/auth/login", json={
+        "email": "expert@example.test", "password": "correct-horse"})
+    assert limited.status_code == 429
+    assert int(limited.headers["retry-after"]) > 0
+    assert limited.json()["error"]["code"] == "RATE_LIMITED"
+
+
+def test_production_requires_expert_session_configuration(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("CORS_ORIGINS", "https://example.test")
+    monkeypatch.setenv("EXPERT_EMAIL", "expert@example.test")
+    monkeypatch.setenv("EXPERT_PASSWORD_HASH", "pbkdf2_sha256$600000$salt$digest")
+    monkeypatch.delenv("EXPERT_SESSION_SECRET", raising=False)
+    with pytest.raises(ValueError, match="EXPERT_SESSION_SECRET"):
+        get_settings()
+
+
+def test_sqlite_foreign_keys_are_enabled_and_enforced(client):
+    engine = db.get_engine()
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar_one() == 1
+    with pytest.raises(IntegrityError):
+        with engine.begin() as connection:
+            connection.execute(db.expert_notes.insert().values(
+                id="missing-parent-note", analysis_id="missing-analysis",
+                expert_user_id="missing-expert", content="must reject"))
+
+
+def test_request_bodies_over_one_mib_are_rejected(client):
+    response = client.post("/api/v1/analyze", content=b"x" * (1024 * 1024 + 1),
+                           headers={"content-type": "application/json"})
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "PAYLOAD_TOO_LARGE"
 
 
 def test_unauthenticated_access_has_structured_401(client):
@@ -196,6 +243,8 @@ def test_review_creation_update_history_and_farmer_status(signed_in):
         "decision": "approved_with_changes", "comments": "Adjust sowing date.",
         "suggested_rotation": [{"season": "rabi", "crop": "wheat"}]})
     assert updated.status_code == 200 and updated.json()["reviewed_at"]
+    assert updated.json()["reviewed_at"].endswith("Z")
+    assert updated.json()["suggested_rotation"] == [{"season": "rabi", "crop": "wheat"}]
     assert signed_in.get(f"/api/v2/expert/analyses/{analysis_id}/reviews").json()["items"][0]["decision"] == "approved_with_changes"
     farmer_record = signed_in.get(f"/api/v1/analyses/{analysis_id}").json()
     assert farmer_record["review_status"] == "approved_with_changes"

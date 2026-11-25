@@ -8,7 +8,9 @@ import json
 import os
 import secrets
 import time
+from collections import deque
 from datetime import date, datetime, time as datetime_time, timedelta, timezone
+from threading import Lock
 from typing import Any, Literal
 from uuid import uuid4
 
@@ -26,6 +28,10 @@ SESSION_TTL_SECONDS = 8 * 60 * 60
 PASSWORD_HASH_ITERATIONS = 600_000
 DECISIONS = ("approved", "approved_with_changes", "needs_more_information", "unsuitable")
 FINAL_REVIEW_STATUSES = DECISIONS
+LOGIN_FAILURE_LIMIT = 10
+LOGIN_FAILURE_WINDOW_SECONDS = 600
+_login_failures: dict[str, deque[float]] = {}
+_login_failures_lock = Lock()
 
 router = APIRouter(prefix="/api/v2/expert", tags=["expert portal"])
 auth_router = APIRouter(prefix="/auth", tags=["expert authentication"])
@@ -57,6 +63,50 @@ def verify_password(password: str, encoded: str) -> bool:
         return hmac.compare_digest(actual, expected)
     except (ValueError, TypeError):
         return False
+
+
+def _login_client_key(request: Request) -> str:
+    return request.client.host if request.client and request.client.host else "unknown"
+
+
+def reset_login_failures() -> None:
+    """Clear the in-memory limiter between isolated tests or after a local restart."""
+    with _login_failures_lock:
+        _login_failures.clear()
+
+
+def _assert_login_allowed(request: Request) -> None:
+    key = _login_client_key(request)
+    now = time.monotonic()
+    with _login_failures_lock:
+        failures = _login_failures.get(key, deque())
+        cutoff = now - LOGIN_FAILURE_WINDOW_SECONDS
+        while failures and failures[0] <= cutoff:
+            failures.popleft()
+        if not failures:
+            _login_failures.pop(key, None)
+            return
+        if len(failures) >= LOGIN_FAILURE_LIMIT:
+            retry_after = max(1, int(LOGIN_FAILURE_WINDOW_SECONDS - (now - failures[0])))
+            raise HTTPException(status_code=429, detail="Too many failed login attempts. Try again later.",
+                                headers={"Retry-After": str(retry_after)})
+        _login_failures[key] = failures
+
+
+def _record_login_failure(request: Request) -> None:
+    key = _login_client_key(request)
+    now = time.monotonic()
+    with _login_failures_lock:
+        failures = _login_failures.setdefault(key, deque())
+        cutoff = now - LOGIN_FAILURE_WINDOW_SECONDS
+        while failures and failures[0] <= cutoff:
+            failures.popleft()
+        failures.append(now)
+
+
+def _clear_login_failures(request: Request) -> None:
+    with _login_failures_lock:
+        _login_failures.pop(_login_client_key(request), None)
 
 
 def _session_secret() -> str:
@@ -152,7 +202,10 @@ class NotesBody(BaseModel):
 def _iso(value: Any) -> str | None:
     if value is None:
         return None
-    return value.isoformat() if isinstance(value, datetime) else str(value)
+    if isinstance(value, datetime):
+        normalized = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+        return normalized.isoformat().replace("+00:00", "Z")
+    return str(value)
 
 
 def _review_dict(row: Any) -> dict[str, Any]:
@@ -265,19 +318,24 @@ def _set_review_status(connection: Any, analysis_id: str, status: str, review_id
 
 
 @auth_router.post("/login")
-def login(body: LoginBody, response: Response):
+def login(body: LoginBody, request: Request, response: Response):
     if (not os.environ.get("EXPERT_EMAIL", "").strip() or
             not os.environ.get("EXPERT_PASSWORD_HASH", "").strip()):
         raise HTTPException(status_code=503, detail="Expert account is not configured.")
     _session_secret()
+    _assert_login_allowed(request)
     engine = _engine()
     email = str(body.email).strip().lower()
     with engine.connect() as connection:
         user = connection.execute(select(db.expert_users).where(db.expert_users.c.email == email)).mappings().first()
-    if not user or not user["is_active"] or not verify_password(body.password, user["password_hash"]):
+    expected_hash = user["password_hash"] if user else os.environ.get("EXPERT_PASSWORD_HASH", "")
+    password_valid = verify_password(body.password, expected_hash)
+    if not user or not user["is_active"] or not password_valid:
+        _record_login_failure(request)
         raise HTTPException(status_code=401, detail="Email or password is incorrect.")
     if user["role"] != "EXPERT":
         raise HTTPException(status_code=403, detail="This account is not authorized for the expert portal.")
+    _clear_login_failures(request)
     token, now, expires = _new_session(user)
     logged_in_at = datetime.fromtimestamp(now, timezone.utc)
     with engine.begin() as connection:
@@ -350,10 +408,7 @@ def list_analyses(
         total = connection.execute(select(func.count()).select_from(base.subquery())).scalar_one()
         ids = connection.execute(base.order_by(db.analysis_requests.c.created_at.desc(), db.analysis_requests.c.id)
                                   .offset((page - 1) * page_size).limit(page_size)).scalars().all()
-    items = []
-    for analysis_id in ids:
-        record = _require_analysis(engine, analysis_id)
-        items.append(record)
+    items = db.load_analyses(ids, engine)
     return {"items": items, "total": total, "page": page, "page_size": page_size,
             "total_pages": (total + page_size - 1) // page_size}
 
@@ -374,7 +429,7 @@ def analysis_summary(expert: dict[str, Any] = Depends(_current_expert)):
         recent_ids = connection.execute(select(db.analysis_requests.c.id).select_from(
             db.analysis_requests.join(db.analysis_results, db.analysis_results.c.request_id == db.analysis_requests.c.id)
         ).order_by(db.analysis_requests.c.created_at.desc()).limit(8)).scalars().all()
-    recent = [_require_analysis(engine, analysis_id) for analysis_id in recent_ids]
+    recent = db.load_analyses(recent_ids, engine)
     return {"total_analyses": total, "pending_reviews": pending,
             "low_confidence_analyses": low_confidence, "completed_reviews": completed,
             "recent_analyses": recent}
@@ -440,7 +495,11 @@ def update_review(review_id: str, body: ReviewPatch, expert: dict[str, Any] = De
             raise HTTPException(status_code=403, detail="This review belongs to another expert account.")
         values = body.model_dump(exclude_unset=True)
         if "suggested_rotation" in values:
-            values["suggested_rotation_json"] = json.dumps(values.pop("suggested_rotation"), ensure_ascii=False) if values["suggested_rotation"] is not None else None
+            suggested_rotation = values.pop("suggested_rotation")
+            values["suggested_rotation_json"] = (
+                json.dumps(suggested_rotation, ensure_ascii=False)
+                if suggested_rotation is not None else None
+            )
         values["updated_at"] = datetime.now(timezone.utc)
         decision = values.get("decision", existing["decision"])
         if decision is None:
