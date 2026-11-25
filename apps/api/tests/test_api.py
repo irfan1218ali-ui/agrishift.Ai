@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from datetime import datetime, timezone
 
 from sqlalchemy import create_engine
 from starlette.requests import Request
@@ -68,7 +69,9 @@ def test_real_farmer_journey_layers_weather_and_persisted_analysis(monkeypatch, 
 
         weather = main.weather(25.21748, 68.334874)
         assert weather["is_sample"] is True and weather["is_live"] is False
-        assert weather["status"] == "saved_sample" and weather["expired"] is False
+        valid_until = datetime.fromisoformat(weather["valid_until"].replace("Z", "+00:00"))
+        expected_expired = valid_until < datetime.now(timezone.utc)
+        assert weather["status"] == "saved_sample" and weather["expired"] is expected_expired
         assert weather["days"] and "rain_total_mm" in weather["days"][0]
 
         request = AnalyzeRequest(

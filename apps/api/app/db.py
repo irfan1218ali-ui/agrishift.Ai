@@ -5,15 +5,19 @@ import csv
 import hashlib
 import json
 from functools import lru_cache
+from threading import RLock
 from uuid import uuid4
+from weakref import WeakSet
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, MetaData, String, Table, Text, create_engine, inspect, select, text
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, Float, ForeignKey, Index, Integer, MetaData, String, Table, Text, UniqueConstraint, create_engine, inspect, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql import func
 
 from .config import get_settings
 
 metadata = MetaData()
+_initialized_engines: WeakSet[Engine] = WeakSet()
+_initialize_lock = RLock()
 analysis_requests = Table(
     "analysis_requests", metadata,
     Column("id", String(36), primary_key=True),
@@ -50,6 +54,71 @@ model_runs = Table(
     Column("artifact_path", String(512)), Column("artifact_checksum", String(64)),
 )
 
+# Expert portal tables are additive. Existing farmer request/result tables remain intact.
+expert_users = Table(
+    "expert_users", metadata,
+    Column("id", String(36), primary_key=True),
+    Column("email", String(254), nullable=False, unique=True, index=True),
+    Column("password_hash", String(512), nullable=False),
+    Column("role", String(16), nullable=False, server_default="EXPERT"),
+    Column("is_active", Boolean, nullable=False, server_default="1"),
+    Column("session_revoked_before", DateTime(timezone=True)),
+    Column("last_login_at", DateTime(timezone=True)),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("role = 'EXPERT'", name="ck_expert_users_single_role"),
+)
+expert_reviews = Table(
+    "expert_reviews", metadata,
+    Column("id", String(36), primary_key=True),
+    Column("analysis_id", String(36), ForeignKey("analysis_requests.id"), nullable=False, index=True),
+    Column("expert_user_id", String(36), ForeignKey("expert_users.id"), nullable=False, index=True),
+    Column("decision", String(32)),
+    Column("comments", Text, nullable=False, server_default=""),
+    Column("suggested_rotation_json", Text),
+    Column("soil_test_requested", Boolean, nullable=False, server_default="0"),
+    Column("reviewed_at", DateTime(timezone=True)),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("decision IS NULL OR decision IN ('approved','approved_with_changes','needs_more_information','unsuitable')", name="ck_expert_reviews_decision"),
+)
+expert_notes = Table(
+    "expert_notes", metadata,
+    Column("id", String(36), primary_key=True),
+    Column("analysis_id", String(36), ForeignKey("analysis_requests.id"), nullable=False),
+    Column("expert_user_id", String(36), ForeignKey("expert_users.id"), nullable=False),
+    Column("content", Text, nullable=False, server_default=""),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("analysis_id", "expert_user_id", name="uq_expert_note_per_analysis_user"),
+)
+analysis_review_status = Table(
+    "analysis_review_status", metadata,
+    Column("analysis_id", String(36), ForeignKey("analysis_requests.id"), primary_key=True),
+    Column("status", String(32), nullable=False, server_default="not_reviewed"),
+    Column("last_review_id", String(36), ForeignKey("expert_reviews.id")),
+    Column("expert_user_id", String(36), ForeignKey("expert_users.id")),
+    Column("reviewed_at", DateTime(timezone=True)),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("status IN ('not_reviewed','under_review','approved','approved_with_changes','needs_more_information','unsuitable')", name="ck_analysis_review_status"),
+)
+rotation_score_components = Table(
+    "rotation_score_components", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("analysis_id", String(36), ForeignKey("analysis_requests.id"), nullable=False, index=True),
+    Column("option_id", String(40), nullable=False),
+    Column("component_key", String(48), nullable=False),
+    Column("value", Float, nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("rule_id", String(80), nullable=False),
+    Column("verified", Boolean, nullable=False),
+    Column("source", String(256), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("analysis_id", "option_id", "component_key", name="uq_rotation_score_component"),
+)
+Index("ix_analysis_review_status_status", analysis_review_status.c.status)
+
 
 @lru_cache(maxsize=1)
 def get_engine() -> Engine:
@@ -66,26 +135,59 @@ def get_engine() -> Engine:
 
 def initialize(engine: Engine | None = None) -> None:
     engine = engine or get_engine()
-    metadata.create_all(engine)
-    # create_all does not add columns to an existing SQLite file; apply additive migrations.
-    if engine.dialect.name == "sqlite":
-        additions = {
-            "analysis_results": {
-                "distance_to_feature_point_m": "FLOAT",
-                "analysis_method": "VARCHAR(80)",
-                "confidence_dots": "INTEGER",
-                "limitations_json": "TEXT",
-            },
-            "model_runs": {"artifact_checksum": "VARCHAR(64)"},
-        }
-        with engine.begin() as connection:
-            inspector = inspect(engine)
-            for table_name, columns in additions.items():
-                existing = {item["name"] for item in inspector.get_columns(table_name)}
-                for name, sql_type in columns.items():
-                    if name not in existing:
-                        connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {name} {sql_type}"))
-    _seed_validated_metadata(engine)
+    with _initialize_lock:
+        if engine in _initialized_engines:
+            return
+        metadata.create_all(engine)
+        # create_all does not add columns to an existing SQLite file; apply additive migrations.
+        if engine.dialect.name == "sqlite":
+            additions = {
+                "analysis_results": {
+                    "distance_to_feature_point_m": "FLOAT",
+                    "analysis_method": "VARCHAR(80)",
+                    "confidence_dots": "INTEGER",
+                    "limitations_json": "TEXT",
+                },
+                "model_runs": {"artifact_checksum": "VARCHAR(64)"},
+            }
+            with engine.begin() as connection:
+                inspector = inspect(engine)
+                for table_name, columns in additions.items():
+                    existing = {item["name"] for item in inspector.get_columns(table_name)}
+                    for name, sql_type in columns.items():
+                        if name not in existing:
+                            connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {name} {sql_type}"))
+                connection.execute(text("""
+                    INSERT OR IGNORE INTO analysis_review_status (analysis_id, status)
+                    SELECT id, 'not_reviewed' FROM analysis_requests
+                """))
+        _seed_validated_metadata(engine)
+        _seed_expert_user(engine)
+        _initialized_engines.add(engine)
+
+
+def _seed_expert_user(engine: Engine) -> None:
+    """Seed the single expert account from its hashed environment credential."""
+    import os
+    from uuid import uuid4
+
+    email = os.environ.get("EXPERT_EMAIL", "").strip().lower()
+    password_hash = os.environ.get("EXPERT_PASSWORD_HASH", "").strip()
+    if not email or not password_hash:
+        return
+    with engine.begin() as connection:
+        connection.execute(expert_users.update().where(expert_users.c.email != email).values(
+            is_active=False, session_revoked_before=func.now(), updated_at=func.now()))
+        existing = connection.execute(select(expert_users.c.id, expert_users.c.password_hash,
+                                            expert_users.c.is_active).where(expert_users.c.email == email)).first()
+        if existing:
+            if existing.password_hash != password_hash or not existing.is_active:
+                connection.execute(expert_users.update().where(expert_users.c.id == existing.id).values(
+                    password_hash=password_hash, role="EXPERT", is_active=True,
+                    session_revoked_before=func.now(), updated_at=func.now()))
+        else:
+            connection.execute(expert_users.insert().values(
+                id=str(uuid4()), email=email, password_hash=password_hash, role="EXPERT", is_active=True))
 
 
 def _seed_validated_metadata(engine: Engine) -> None:
@@ -177,6 +279,19 @@ def save_analysis(request_data: dict, response: dict, engine: Engine | None = No
             limitations_json=json.dumps(response.get("limitations", []), ensure_ascii=False),
             status=response.get("status", "unknown"),
         ))
+        conn.execute(analysis_review_status.insert().values(
+            analysis_id=request_id, status="not_reviewed"))
+        component_rows = []
+        for option in options:
+            for key, component in (option.get("score_breakdown") or {}).items():
+                component_rows.append({
+                    "analysis_id": request_id, "option_id": option.get("id", "unknown"),
+                    "component_key": key, "value": float(component["value"]),
+                    "reason": str(component["reason"]), "rule_id": str(component["rule_id"]),
+                    "verified": bool(component["verified"]), "source": str(component["source"]),
+                })
+        if component_rows:
+            conn.execute(rotation_score_components.insert(), component_rows)
     return request_id
 
 
@@ -190,10 +305,14 @@ def load_analysis(analysis_id: str, engine: Engine | None = None) -> dict | None
         row = conn.execute(statement).mappings().first()
     if row is None:
         return None
+    with engine.connect() as conn:
+        review = conn.execute(select(analysis_review_status.c.status).where(
+            analysis_review_status.c.analysis_id == analysis_id)).first()
     return {
         "analysis_id": row["id"], "request": {key: row[key] for key in (
             "latitude", "longitude", "radius_m", "previous_crop", "current_crop", "water_source",
             "water_level", "salinity", "waterlogging", "priority", "language", "created_at"
         )},
         "result": json.loads(row["rotation_results_json"]),
+        "review_status": review.status if review else "not_reviewed",
     }

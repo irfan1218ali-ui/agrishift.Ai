@@ -16,6 +16,7 @@ from .config import get_settings
 from .schemas import AnalyzeRequest
 from . import service
 from . import db
+from . import expert_api
 from . import regional_context
 from .ml.clustering import load_artifacts
 
@@ -37,8 +38,10 @@ app = FastAPI(title="AgriShift AI API", version="1.0.0",
               lifespan=lifespan)
 
 _settings = get_settings()
-app.add_middleware(CORSMiddleware, allow_origins=_settings.cors_origins, allow_methods=["GET", "POST"],
-                   allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=_settings.cors_origins,
+                   allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+                   allow_headers=["*"], allow_credentials=True)
+app.include_router(expert_api.router)
 
 
 @app.middleware("http")
@@ -47,6 +50,14 @@ async def request_id_middleware(request: Request, call_next):
     request.state.request_id = request_id
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(self), camera=(), microphone=()")
+    if request.url.path.startswith("/api/v2/expert/"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Vary"] = "Cookie"
     return response
 
 
@@ -66,7 +77,8 @@ async def validation_error(request: Request, exc: RequestValidationError):
 
 @app.exception_handler(HTTPException)
 async def http_error(request: Request, exc: HTTPException):
-    code = "RESOURCE_NOT_FOUND" if exc.status_code == 404 else "DATA_NOT_AVAILABLE"
+    code = {401: "AUTHENTICATION_REQUIRED", 403: "FORBIDDEN", 404: "RESOURCE_NOT_FOUND",
+            422: "VALIDATION_ERROR", 503: "SERVICE_UNAVAILABLE"}.get(exc.status_code, "REQUEST_REJECTED")
     return _error(request, exc.status_code, code, str(exc.detail))
 
 

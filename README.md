@@ -1,46 +1,42 @@
 # AgriShift AI
 
-AgriShift AI is a multilingual crop-rotation decision-support prototype for the Hyderabad, Sindh pilot. It combines a rule-based rotation engine with evidence and uncertainty summaries. It does not diagnose crop disease, predict yield, or replace a local agronomist.
+AgriShift AI is a multilingual crop-rotation decision-support application for the Hyderabad, Sindh pilot. It combines validated environmental evidence with an explainable rule-based rotation engine. Its K-Means model groups environmental conditions; it does not predict crops, disease, or yield.
 
-## Current project status
+## Current release
 
-- The Step 2A real-data branch is merged into `hackathon/step-2b-integration`.
-- The API loads 149 validated Hyderabad pilot feature points, saved environmental K-Means artifacts, four map overlays, SMAP/GPM summaries, and normalized Meteomatics weather.
-- The farmer UI and API run together on FastAPI. Successful analyses are stored in SQLite and can be retrieved by analysis ID.
-- The interface labels real and demo modes. Demo example data is used only when `DEMO_MODE=true` is explicitly selected.
+- Phase 1 farmer and expert frontend: Next.js, React, TypeScript, Tailwind CSS, and MapLibre.
+- Phase 2 Expert Portal: one backend-authenticated EXPERT account, global analysis list, reviews, server-side notes, persistent review status, and eleven explainable score components.
+- Existing public farmer APIs and the existing three-option rotation flow are preserved.
+- Real mode uses 149 validated feature points and the checked-in runtime K-Means artifacts; demo data requires explicit `DEMO_MODE=true`.
+- SQLite initialization is additive and preserves existing farmer analyses.
 
-See [`docs/data/`](docs/data/) and [`docs/demo/known-limitations.md`](docs/demo/known-limitations.md) for source details and limitations.
+## Run locally
 
-## Run the local MVP
-
-Use Python 3.11. From the repository root in PowerShell:
+Use Python 3.11 and Node.js. The startup and expert account steps are documented in [`README_FINAL_DEMO.md`](README_FINAL_DEMO.md). The integrated launcher is:
 
 ```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.lock.txt
 python scripts\start_demo.py
 ```
 
-Open `http://127.0.0.1:8000`. The launcher uses real features by default and serves the frontend and API from one local server. The saved weather forecast is always labelled as a sample. Optional provider credentials enable live weather.
+Open `http://127.0.0.1:3000`. The frontend uses port 3000 and FastAPI uses port 8000. Install Python dependencies from `requirements.lock.txt` and frontend dependencies with `npm ci` in `apps/web` before starting.
 
-## Checks
+## Verify
 
 ```powershell
+cd apps/web
+npm run typecheck
+npm run build
+cd ..\..
 python -m pytest -q
-ruff check .
-python -m compileall -q -x '\\.venv' .
 ```
 
 ## Project map
 
-- `apps/api/app/`: FastAPI routes, input schemas, feature reading, NASA POWER and Meteomatics adapters, regional context, and SQLite persistence.
-- `apps/web/index.html`: existing multilingual farmer and expert views, connected to the API.
+- `apps/api/app/`: FastAPI public and expert APIs, domain service, data readers, and SQLite persistence.
+- `apps/web/src/`: multilingual farmer flow, Expert Dashboard, analysis detail, and components.
 - `services/rotation-engine/`: existing crop-rule loading and three-strategy rotation logic.
-- `scripts/data/`: source discovery, validation, manifests, regional summaries, terrain overlay, and weather products.
-- `scripts/start_demo.py`: starts the real-data MVP; explicit `DEMO_MODE=true` selects the labelled example mode.
-- `ml/clustering/`: K-Means training, evaluation, prediction, and runtime artifacts.
-- `data/manifests/`: checksummed source inventory without developer-specific absolute paths.
-- `docs/`: architecture, source inventory, API/database notes, audit, limitations, and demo guide.
+- `scripts/start_demo.py`: integrated local launcher; `scripts/hash_expert_password.py`: hidden-input PBKDF2 hash generator.
+- `scripts/package_release.py`: validated runnable ZIP builder that excludes raw datasets, local databases, credentials, virtual environments, caches, and `node_modules`.
+- `data/`, `ml/`: pilot runtime inputs and the existing verified model artifacts.
 
-The full original ZIP code inventory is in `docs/archive/agrishift-zip-code-documentation.md`.
+See [`docs/data/`](docs/data/) and [`docs/demo/known-limitations.md`](docs/demo/known-limitations.md) for evidence sources and scientific limits. See [`docs/security/README.md`](docs/security/README.md) for account and deployment security notes.

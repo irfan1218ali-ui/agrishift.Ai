@@ -21,6 +21,8 @@ node_modules/
 out/
 dist/
 .turbo/
+*.tsbuildinfo
+**/.playwright-mcp/
 # Scientific data zones: keep instructions, manifests, and schemas only
 /data/raw/**
 !/data/raw/**/

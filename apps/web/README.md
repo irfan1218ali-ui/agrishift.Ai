@@ -1,8 +1,22 @@
-# Web application boundary
+# AgriShift AI frontend
 
-Reserved for the future Next.js App Router client. Planned modules: routes/layouts, components, features, hooks, lib, typed API services, stores and types. The map displays only six-source MVP layer contracts. Keep provider credentials and geospatial processing on backend/workers. Map layers carry source/display resolution, date, quality, attribution, confidence and availability. No web application is implemented yet.
+The public farmer flow and single EXPERT portal use Next.js App Router, React, TypeScript, Tailwind CSS, shadcn-style UI primitives, and MapLibre GL. The farmer flow requires no account. Expert authentication, analysis search, reviews, notes, and review status are served by FastAPI and SQLite.
 
-Owner: Frontend (Area A).
-Inputs: shared API, map-layer, design and accessibility contracts.
-Outputs: accessible farmer-facing UI and client feedback.
-Must not store: credentials, unreviewed private farmer data, or unrelated scientific data.
+## Run locally
+
+From the repository root, install frontend dependencies once with `cd apps/web && npm ci`, then return to the root and run `python scripts/start_demo.py`. Open `http://127.0.0.1:3000`. Next.js serves the UI and proxies `/api/expert/*` to the API on port 8000; public farmer requests continue to use `/api/v1`.
+
+## Configure the EXPERT account
+
+The API seeds exactly one EXPERT from the root `.env` values `EXPERT_EMAIL` and `EXPERT_PASSWORD_HASH`. Generate the hash with `python scripts/hash_expert_password.py`; it prompts without echoing the password and prints only the encoded hash. Set a random `EXPERT_SESSION_SECRET` with at least 32 characters. Keep `.env` private and restart the API after changing it. The expert session is an eight-hour signed, Secure, HttpOnly, SameSite=Strict cookie.
+
+The expert API is unavailable until the email, password hash, and session secret are configured. Farmer analysis remains public and works without expert credentials.
+
+## Checks
+
+```powershell
+npm run typecheck
+npm run build
+```
+
+The landing-page field photograph is credited to Rabia Saleem via Wikimedia Commons under CC BY-SA 4.0 and is labelled illustrative, not as an analyzed field.

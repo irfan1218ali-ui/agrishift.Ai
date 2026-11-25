@@ -1,23 +1,26 @@
-# API contract conventions
+# API contract summary
 
-All routes are rooted at `/api/v1`. OpenAPI schemas are generated from validated boundary models; examples show shapes only and contain no farmer/environmental observations.
+The running FastAPI service exposes public farmer routes under `/api/v1` and the authenticated single-EXPERT portal under `/api/v2/expert`. OpenAPI is available from the running service at `/openapi.json`.
 
-## Example field create request
+## Public farmer routes
 
-```json
-{"farm_id":"uuid","name":"string","boundary":{"type":"Polygon","coordinates":"GeoJSON positions"},"crs":"EPSG:4326"}
-```
+`GET /api/v1/health`, `GET /api/v1/crops`, `POST /api/v1/analyze`, `GET /api/v1/analyses/{analysis_id}`, `GET /api/v1/context`, `GET /api/v1/weather`, `GET /api/v1/layers/metadata`, and `GET /api/v1/layers/{ndvi|ndmi|bsi|slope}.png`.
 
-## Example asynchronous processing response
+An accepted farmer analysis is persisted in SQLite. The retrieval response includes `review_status` so the public results page can show the saved expert decision. Farmer routes do not require authentication.
 
-```json
-{"job_id":"uuid","status":"queued","created_at":"2026-01-01T00:00:00Z","request_id":"uuid"}
-```
+## Expert routes
 
-## Error envelope
+- Auth: `POST /api/v2/expert/auth/login`, `POST /api/v2/expert/auth/logout`, `GET /api/v2/expert/auth/me`.
+- Analysis list/detail: `GET /api/v2/expert/analyses`, `GET /api/v2/expert/analyses/summary`, `GET /api/v2/expert/analyses/{analysis_id}`.
+- Reviews: `POST /api/v2/expert/analyses/{analysis_id}/reviews`, `PATCH /api/v2/expert/reviews/{review_id}`, `GET /api/v2/expert/analyses/{analysis_id}/reviews`.
+- Notes: `GET /api/v2/expert/analyses/{analysis_id}/notes`, `PUT /api/v2/expert/analyses/{analysis_id}/notes`.
 
-```json
-{"error":{"code":"ERROR_CODE","message":"Readable message","request_id":"uuid","details":{}}}
-```
+The analysis list accepts `status`, `confidence` (`low`, `medium`, `high`), `previous_crop`, `priority`, `salinity`, `waterlogging`, inclusive `date_from`/`date_to`, `search`, `page`, and `page_size`. The response contains `items`, `total`, `page`, `page_size`, and `total_pages`.
 
-Use UUID identifiers, UTC ISO-8601 instants, documented inclusive date ranges, validated GeoJSON with explicit CRS, cursor pagination (`items`, `next_cursor`), and job states `queued`, `running`, `succeeded`, `failed`, `cancelled`. Prediction responses name model/dataset versions plus confidence and limitations.
+Review decisions are `approved`, `approved_with_changes`, `needs_more_information`, and `unsuitable`. Creating a review without a decision sets `under_review`. Score components are saved with `value`, `reason`, `rule_id`, `verified`, and `source`.
+
+## Authentication and errors
+
+Login verifies the single EXPERT account configured by `EXPERT_EMAIL`, `EXPERT_PASSWORD_HASH`, and `EXPERT_SESSION_SECRET`. The browser receives an eight-hour signed Secure, HttpOnly, SameSite=Strict cookie. Expert responses are marked `Cache-Control: no-store`.
+
+Errors use `{"error":{"code":"...","message":"...","request_id":"...","details":{}}}`. Authentication, authorization, not-found, validation, and service-unavailable responses use HTTP 401, 403, 404, 422, and 503 respectively. The `X-Request-ID` header matches the envelope request ID.

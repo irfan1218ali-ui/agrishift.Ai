@@ -125,7 +125,8 @@ def analyze(req: AnalyzeRequest, deps: Deps, today: Optional[date] = None) -> di
         "waterlogging": req.waterlogging, "priority": req.priority,
     }
     try:
-        rotation = recommend(deps.crops, engine_request, engine_features, today or date.today())
+        rotation = recommend(deps.crops, engine_request, engine_features, today or date.today(),
+                             include_score_breakdown=True)
     except ValueError:
         return _insufficient("no_data_001", s.demo_mode)
     if rotation["status"] != "ok":

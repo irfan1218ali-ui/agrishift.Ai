@@ -10,10 +10,13 @@ from zipfile import ZIP_DEFLATED, ZipFile
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT.parent / "agrishift-ai-hackathon-final.zip"
 BLOCKED_DIRS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".ruff_cache",
-                ".mypy_cache", ".next", "node_modules", ".tmp-zip-review"}
+                ".mypy_cache", ".next", "node_modules", ".playwright-mcp", ".tmp-zip-review",
+                "secrets", "private", ".local"}
 BLOCKED_SUFFIXES = {".tif", ".tiff", ".nc", ".nc4", ".h5", ".hdf", ".hdf5", ".grib",
                     ".jp2", ".shp", ".shx", ".dbf", ".gpkg", ".parquet", ".pkl", ".pt",
-                    ".pth", ".onnx", ".sqlite", ".sqlite3", ".db", ".log"}
+                    ".pth", ".onnx", ".sqlite", ".sqlite3", ".db", ".log", ".pem", ".key",
+                    ".p12", ".pfx", ".crt", ".cer", ".token", ".secret", ".credentials"}
+BLOCKED_NAMES = {"id_rsa", "id_ed25519", "credentials.json", "secrets.json", "service-account.json"}
 RUNTIME_MODELS = {
     "ml/clustering/artifacts/scaler.joblib",
     "ml/clustering/artifacts/kmeans.joblib",
@@ -37,6 +40,10 @@ def include(relative: Path) -> bool:
     parts = relative.parts
     name = relative.name
     normalized = relative.as_posix()
+    if name.lower() in BLOCKED_NAMES:
+        return False
+    if path_contains_private_marker(name):
+        return False
     if normalized in PACKAGE_EXCLUDES:
         return False
     if any(part in BLOCKED_DIRS for part in parts):
@@ -67,7 +74,15 @@ def include(relative: Path) -> bool:
 
 
 def collect_files() -> list[Path]:
-    return sorted(path for path in ROOT.rglob("*") if path.is_file() and include(path.relative_to(ROOT)))
+    return sorted(path for path in ROOT.rglob("*")
+                  if path.is_file() and not path.is_symlink() and include(path.relative_to(ROOT)))
+
+
+def path_contains_private_marker(name: str) -> bool:
+    """Exclude common standalone credential and private-key filenames."""
+    lowered = name.lower()
+    return (lowered.startswith(("id_rsa", "id_ed25519", "private_key", "service_account"))
+            or lowered.endswith((".env.local", ".credentials.json", ".secrets.json")))
 
 
 def validate_package(files: list[Path]) -> None:
@@ -82,6 +97,11 @@ def validate_package(files: list[Path]) -> None:
         "ml/clustering/artifacts/scaler.joblib", "ml/clustering/artifacts/kmeans.joblib",
         "ml/clustering/artifacts/cluster_profile.json", "ml/clustering/artifacts/metrics.json",
         "ml/clustering/artifacts/training_manifest.json",
+        "apps/api/app/expert_api.py", "apps/api/tests/test_expert_api.py",
+        "apps/web/src/app/api/expert/[...path]/route.ts",
+        "apps/web/src/app/expert/dashboard/page.tsx",
+        "apps/web/src/app/expert/analysis/[id]/page.tsx",
+        "scripts/hash_expert_password.py",
     }
     names = {path.relative_to(ROOT).as_posix() for path in files}
     missing = required - names
@@ -96,10 +116,17 @@ def validate_package(files: list[Path]) -> None:
         if not artifact.is_file() or sha256(artifact) != record.get("sha256"):
             raise ValueError(f"K-Means artifact checksum failed during packaging: {artifact.name}")
     env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
-    for key in ("METEOMATICS_USERNAME", "METEOMATICS_PASSWORD"):
+    for key in ("METEOMATICS_USERNAME", "METEOMATICS_PASSWORD", "EXPERT_EMAIL",
+                "EXPERT_PASSWORD_HASH", "EXPERT_SESSION_SECRET"):
         for line in env_example.splitlines():
             if line.startswith(key + "=") and line.split("=", 1)[1].strip():
                 raise ValueError(f"Credential placeholder must remain blank: {key}")
+    names = {path.relative_to(ROOT).as_posix() for path in files}
+    forbidden = [name for name in names if any(part in BLOCKED_DIRS for part in Path(name).parts)
+                 or Path(name).suffix.lower() in BLOCKED_SUFFIXES
+                 or name.endswith(".env.local")]
+    if forbidden:
+        raise ValueError(f"Release contents include blocked local or private files: {sorted(forbidden)}")
 
 
 def sha256(path: Path) -> str:
