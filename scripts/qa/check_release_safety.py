@@ -72,11 +72,15 @@ def inspect_content(path: Path) -> list[tuple[str, int]]:
         raw = path.read_bytes()
     except OSError:
         return [("unreadable file", 0)]
+    return inspect_bytes(path.relative_to(ROOT).as_posix(), raw)
+
+
+def inspect_bytes(relative: str, raw: bytes) -> list[tuple[str, int]]:
     if b"\0" in raw:
         return []
     text = raw.decode("utf-8", errors="replace")
     findings: list[tuple[str, int]] = []
-    relative = path.relative_to(ROOT).as_posix().lower()
+    relative = relative.lower()
     for number, line in enumerate(text.splitlines(), start=1):
         if LOCAL_USER_PATH.search(line):
             findings.append(("absolute local user path", number))
@@ -96,6 +100,68 @@ def inspect_content(path: Path) -> list[tuple[str, int]]:
     return findings
 
 
+def scan_outgoing_blobs() -> tuple[int, list[tuple[str, str, int]]]:
+    """Inspect new Git objects that a branch push would transfer beyond origin/main."""
+    base = "refs/remotes/origin/main"
+    if subprocess.run(["git", "show-ref", "--verify", "--quiet", base], cwd=ROOT).returncode != 0:
+        raise RuntimeError("origin/main is unavailable; fetch the remote before scanning push history")
+    listing = subprocess.run(
+        ["git", "rev-list", "--objects", f"{base}..HEAD"], cwd=ROOT,
+        check=True, capture_output=True,
+    ).stdout.decode("utf-8", errors="surrogateescape")
+    object_paths: dict[str, str] = {}
+    for line in listing.splitlines():
+        pieces = line.split(" ", 1)
+        if len(pieces) == 2:
+            object_paths.setdefault(pieces[0], pieces[1])
+    if not object_paths:
+        return 0, []
+
+    object_ids = list(object_paths)
+    type_output = subprocess.run(
+        ["git", "cat-file", "--batch-check=%(objectname) %(objecttype) %(objectsize)"],
+        cwd=ROOT, input=("\n".join(object_ids) + "\n").encode("ascii"),
+        check=True, capture_output=True,
+    ).stdout.decode("ascii", errors="replace").splitlines()
+    blob_paths: dict[str, str] = {}
+    for line in type_output:
+        pieces = line.split()
+        if len(pieces) == 3 and pieces[1] == "blob":
+            blob_paths[pieces[0]] = object_paths[pieces[0]]
+    if not blob_paths:
+        return 0, []
+
+    batch = subprocess.run(
+        ["git", "cat-file", "--batch"], cwd=ROOT,
+        input=("\n".join(blob_paths) + "\n").encode("ascii"),
+        check=True, capture_output=True,
+    ).stdout
+    stream = memoryview(batch)
+    cursor = 0
+    findings: list[tuple[str, str, int]] = []
+    for object_id, relative in blob_paths.items():
+        end = batch.find(b"\n", cursor)
+        if end < 0:
+            raise RuntimeError("Git object stream was incomplete")
+        header = batch[cursor:end].decode("ascii", errors="replace").split()
+        if len(header) != 3 or header[1] != "blob":
+            raise RuntimeError("Git object stream contained an unexpected object")
+        size = int(header[2])
+        cursor = end + 1
+        content = bytes(stream[cursor:cursor + size])
+        cursor += size
+        if cursor < len(batch) and batch[cursor:cursor + 1] == b"\n":
+            cursor += 1
+
+        relative_path = Path(relative)
+        category = blocked_path(ROOT / relative_path)
+        if category:
+            findings.append((relative, category, 0))
+        findings.extend((relative, category, line)
+                        for category, line in inspect_bytes(relative, content))
+    return len(blob_paths), findings
+
+
 def main() -> int:
     try:
         files = git_files()
@@ -111,6 +177,13 @@ def main() -> int:
             findings.append((relative, category, 0))
         findings.extend((relative, category, line) for category, line in inspect_content(path))
 
+    try:
+        outgoing_count, outgoing_findings = scan_outgoing_blobs()
+        findings.extend(outgoing_findings)
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as exc:
+        print(f"FAIL: could not scan outgoing Git history ({type(exc).__name__}).")
+        return 2
+
     if findings:
         print(f"FAIL: {len(findings)} release-safety finding(s); values are redacted.")
         for relative, category, line in findings:
@@ -118,7 +191,7 @@ def main() -> int:
             print(f"{relative}{location}: {category}")
         return 1
 
-    print(f"PASS: scanned {len(files)} tracked and non-ignored candidate files; no sensitive or excluded content found.")
+    print(f"PASS: scanned {len(files)} worktree candidates and {outgoing_count} new push blobs; no sensitive or excluded content found.")
     return 0
 
 
