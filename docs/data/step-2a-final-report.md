@@ -9,7 +9,7 @@
 | :--- | :--- |
 | **Project Name** | AgriShift AI |
 | **Lifecycle Stage** | Step 2A: Real Data Preparation & Machine Learning Baseline |
-| **Workspace Path** | `C:\Users\HP\Documents\field shift\agrishift-step2-data` |
+| **Workspace Path** | `[local path omitted]` |
 | **Isolation Method** | Separate complete project copy with dedicated Git repository |
 | **Branch** | `hackathon/step-2-data-preparation` |
 | **Base Commit** | `0277e349f6ab1ea56df4ef0b5a4257bbcfab5149` |
@@ -28,12 +28,12 @@ This engineering report certifies the successful execution and completion of **S
 ## 2. Parallel Work and Isolation Record
 
 ### 2.1 Parallel Execution Context
-Another engineering agent, Codex, is actively conducting Step 1 (backend stabilization, error standardization, and frontend verification) on the root repository at `C:\Users\HP\Documents\field shift\agrishift-ai` on branch `hackathon/step-1-stabilize`.
+Another engineering agent, Codex, is actively conducting Step 1 (backend stabilization, error standardization, and frontend verification) on the root repository.
 
 ### 2.2 Worktree and Isolation Rationale
 - Initial inspection of `agrishift-ai` revealed an unborn HEAD (`hackathon/step-1-stabilize` had zero commits).
 - Executing `git worktree add ../agrishift-step2-data -b hackathon/step-2-data-preparation` created an empty orphan branch directory without files.
-- To guarantee non-destructive isolation and maintain full application context, a standalone project replica was created at `C:\Users\HP\Documents\field shift\agrishift-step2-data` via robocopy (excluding transient caches, virtual environments, and `.git`).
+To guarantee non-destructive isolation and maintain full application context, a standalone project replica was created; its local path is omitted.
 - A dedicated Git repository was initialized on branch `hackathon/step-2-data-preparation` with initial baseline snapshot `0277e34`.
 - Full parallel isolation details are preserved in `docs/data/parallel-work-record.md`.
 
@@ -703,7 +703,7 @@ agrishift-step2-data/
 ```
 ============================= test session starts =============================
 platform win32 -- Python 3.11.9, pytest-9.2.0, pluggy-1.7.0
-rootdir: C:\Users\HP\Documents\field shift\agrishift-step2-data
+rootdir: <workspace>
 collected 27 items
 
 tests/data/test_discovery_and_manifests.py::test_data_status_catalog_exists_and_valid PASSED [  3%]

@@ -74,8 +74,16 @@ def get_settings() -> Settings:
     origins = [o.strip() for o in env(
         "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000"
     ).split(",") if o.strip()]
-    if env("APP_ENV", "development").lower() == "production" and "*" in origins:
-        raise ValueError("CORS_ORIGINS must not contain '*' in production")
+    app_env = env("APP_ENV", "development").strip().lower()
+    if app_env == "production":
+        if "*" in origins:
+            raise ValueError("CORS_ORIGINS must not contain '*' in production")
+        if len(env("EXPERT_SESSION_SECRET", "")) < 32:
+            raise ValueError("EXPERT_SESSION_SECRET must contain at least 32 characters in production")
+        if not env("EXPERT_EMAIL", "").strip() or not env("EXPERT_PASSWORD_HASH", "").strip():
+            raise ValueError("EXPERT_EMAIL and EXPERT_PASSWORD_HASH are required in production")
+        if not env("EXPERT_PASSWORD_HASH", "").startswith("pbkdf2_sha256$"):
+            raise ValueError("EXPERT_PASSWORD_HASH must be a PBKDF2-SHA256 hash in production")
     power_csv = Path(env("NASA_POWER_CSV")) if env("NASA_POWER_CSV") else None
     if power_csv is None:
         candidates = sorted((root / "data" / "api-samples" / "nasa-power").glob("POWER_Point_Daily_*.csv"))

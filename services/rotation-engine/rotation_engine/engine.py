@@ -195,6 +195,42 @@ def _unverified_rule_penalty(c: Crop, ctx: Ctx) -> float:
     return PENALTY_UNVERIFIED_RULE * soft_risks
 
 
+def score_components(c1: Crop, c2: Crop, ctx: Ctx, wkey: str, final_score: float) -> dict:
+    """Expose transparent factors and adjustments without changing the score formula."""
+    crops = (c1, c2)
+    water_fit = _mean(_paani_fit(c, ctx) for c in crops)
+    soil_fit = _mean(_zameen_fit(c, ctx) for c in crops)
+    heat_fit = _mean(_mausam_fit(c, ctx) for c in crops)
+    diversity_fit = _mean((_rotation_faida(c1, ctx.current), _rotation_faida(c2, c1)))
+    active_weights = WEIGHTS[wkey]
+    balanced_weights = WEIGHTS["balanced"]
+    factor_values = (water_fit, soil_fit, heat_fit, diversity_fit)
+    base_score = 100.0 * sum(weight * value for weight, value in zip(active_weights, factor_values))
+    balanced_score = 100.0 * sum(weight * value for weight, value in zip(balanced_weights, factor_values))
+    seasonal_ok = c1.season == ctx.slots[0][0] and c2.season == ctx.slots[1][0]
+    legume_gain = 0.1 * sum(ctx.weak and c.n_fixing for c in crops) / len(crops)
+    verification_penalty = sum(_unverified_rule_penalty(c, ctx) for c in crops)
+    source_crops = "knowledge/crops.csv + farmer inputs"
+    source_features = "data/features/features.json + knowledge/crops.csv + farmer inputs"
+    crops_verified = all(c.verified for c in crops)
+    rules = {
+        "base_score": (round(base_score, 2), "Pre-penalty weighted score using the selected rotation-engine profile.", "ROT-SCORE-BASE-001", False, source_features),
+        "seasonal_fit": (100.0 if seasonal_ok else 0.0, "Season slot check; it is a rule gate and does not add score points.", "ROT-SEASON-001", crops_verified, source_crops),
+        "water_compatibility": (round(water_fit * 100, 2), "Water-fit factor on the engine's 0-100 factor scale.", "ROT-WATER-001", crops_verified, source_crops),
+        "rotation_diversity": (round(diversity_fit * 100, 2), "Family-transition factor on the engine's 0-100 factor scale.", "ROT-DIVERSITY-001", crops_verified, source_crops),
+        "legume_benefit": (round(100 * active_weights[1] * legume_gain, 2), "Score points from the weak-field nitrogen-fixing crop adjustment, when applicable.", "ROT-LEGUME-001", crops_verified, source_features),
+        "heat_suitability": (round(heat_fit * 100, 2), "Heat-fit factor from POWER heat days and crop tolerance.", "ROT-HEAT-001", False, source_features),
+        "salinity_adjustment": (round(_mean(_tol_fit(c.salinity_tol) if ctx.salinity == "yes" else (1.0 if ctx.salinity == "no" else 0.5 + 0.5 * _tol_fit(c.salinity_tol)) for c in crops) * 100, 2), "Salinity-fit factor on a 0-100 scale; unknown farmer input uses the engine's neutral estimate.", "ROT-SALINITY-001", crops_verified, source_crops),
+        "waterlogging_adjustment": (round(_mean(_tol_fit(c.waterlog_tol) if ctx.waterlogging == "yes" or ctx.low_lying else (1.0 if ctx.waterlogging == "no" else 0.5 + 0.5 * _tol_fit(c.waterlog_tol)) for c in crops) * 100, 2), "Waterlogging-fit factor on a 0-100 scale; unknown farmer input uses the engine's neutral estimate.", "ROT-WATERLOG-001", crops_verified, source_crops),
+        "farmer_priority_adjustment": (round(base_score - balanced_score, 2), "Difference from the balanced weighting profile for the same crops and conditions.", "ROT-PRIORITY-001", False, "farmer input + rotation_engine/engine.py"),
+        "verification_penalty": (round(verification_penalty, 2), "Warning-only penalty for selected unverified risk rules; unverified rules never independently reject crops.", "ROT-VERIFY-001", False, source_crops),
+        "final_score": (round(float(final_score), 2), "Final score returned by the existing, unverified rule engine after its penalties and 0-100 cap.", "ROT-SCORE-FINAL-001", False, "rotation_engine/engine.py + knowledge/crops.csv"),
+    }
+    return {key: {"value": value, "reason": reason, "rule_id": rule_id,
+                  "verified": verified, "source": source}
+            for key, (value, reason, rule_id, verified, source) in rules.items()}
+
+
 def score_sequence(c1: Crop, c2: Crop, ctx: Ctx, wkey: str) -> Tuple[float, bool]:
     """Returns (score 0..100, late_sowing_flag)."""
     w1, w2, w3, w4 = WEIGHTS[wkey]
@@ -271,7 +307,8 @@ def _explain(c1: Crop, c2: Crop, ctx: Ctx, violations: List[str], late: bool,
 
 
 # ---------------------------------------------------------------- option builder
-def _option(opt_id: str, c1: Crop, c2: Crop, ctx: Ctx, wkey: str, dots: int, is_existing: bool) -> dict:
+def _option(opt_id: str, c1: Crop, c2: Crop, ctx: Ctx, wkey: str, dots: int,
+            is_existing: bool, include_score_breakdown: bool = False) -> dict:
     violations = hard_violations(c1, c2, ctx)
     score, late = score_sequence(c1, c2, ctx, wkey)
     if violations:
@@ -285,7 +322,7 @@ def _option(opt_id: str, c1: Crop, c2: Crop, ctx: Ctx, wkey: str, dots: int, is_
     option_dots = min(dots, 2) if not verified else dots
     warnings = [] if verified else ["Agronomic value requires local verification."]
     warning_ids = [] if verified else ["warning_unverified_001"]
-    return {
+    option = {
         "id": opt_id,
         "seasons": [
             {"season": ctx.slots[0][1], "crop": c1.id},
@@ -302,6 +339,9 @@ def _option(opt_id: str, c1: Crop, c2: Crop, ctx: Ctx, wkey: str, dots: int, is_
         "warnings": warnings,
         "warning_ids": warning_ids,
     }
+    if include_score_breakdown:
+        option["score_breakdown"] = score_components(c1, c2, ctx, wkey, option["score"])
+    return option
 
 
 def _field_health(ndvi: float) -> dict:
@@ -313,7 +353,8 @@ def _field_health(ndvi: float) -> dict:
 
 
 # ---------------------------------------------------------------- public entry point
-def recommend(crops: Dict[str, Crop], request: dict, features: dict, today: Optional[date] = None) -> dict:
+def recommend(crops: Dict[str, Crop], request: dict, features: dict, today: Optional[date] = None,
+              include_score_breakdown: bool = False) -> dict:
     """Build the 3 options.
 
     request keys: current_crop, water_source, water_amount, salinity, waterlogging, priority
@@ -369,19 +410,19 @@ def recommend(crops: Dict[str, Crop], request: dict, features: dict, today: Opti
 
     options = []
     used = {(existing_pair[0].id, existing_pair[1].id)}
-    options.append(_option("existing", existing_pair[0], existing_pair[1], ctx, ctx.priority, dots, True))
+    options.append(_option("existing", existing_pair[0], existing_pair[1], ctx, ctx.priority, dots, True, include_score_breakdown))
 
     bal = ranked("balanced", used)
     if bal:
         p = bal[0]
-        options.append(_option("balanced", p[0], p[1], ctx, "balanced", dots, False))
+        options.append(_option("balanced", p[0], p[1], ctx, "balanced", dots, False, include_score_breakdown))
         used.add((p[0].id, p[1].id))
 
     third_key = ctx.priority if ctx.priority != "balanced" else "save_water_soil"
     third = ranked(third_key, used)
     if third:
         p = third[0]
-        options.append(_option("priority", p[0], p[1], ctx, third_key, dots, False))
+        options.append(_option("priority", p[0], p[1], ctx, third_key, dots, False, include_score_breakdown))
 
     if len(options) != 3 or len({tuple((s["crop"] for s in option["seasons"])) for option in options}) != 3:
         return {"status": "insufficient_data", "reason_id": "three_distinct_options_unavailable_001",

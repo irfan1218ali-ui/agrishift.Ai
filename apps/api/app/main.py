@@ -4,6 +4,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from functools import lru_cache
 import json
+import os
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -16,10 +17,12 @@ from .config import get_settings
 from .schemas import AnalyzeRequest
 from . import service
 from . import db
+from . import expert_api
 from . import regional_context
 from .ml.clustering import load_artifacts
 
 LAYER_NAMES = {"ndvi", "ndmi", "bsi", "slope"}
+MAX_REQUEST_BODY_BYTES = 1_048_576
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -32,21 +35,39 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="AgriShift AI API", version="1.0.0",
+app = FastAPI(title="AgriShift AI API", version=os.environ.get("APP_VERSION", "2.0.0"),
               description="Rule-based rotation options with neutral environmental clustering for the Hyderabad pilot.",
               lifespan=lifespan)
 
 _settings = get_settings()
-app.add_middleware(CORSMiddleware, allow_origins=_settings.cors_origins, allow_methods=["GET", "POST"],
-                   allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=_settings.cors_origins,
+                   allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+                   allow_headers=["*"], allow_credentials=True)
+app.include_router(expert_api.router)
 
 
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
     request_id = str(uuid4())
     request.state.request_id = request_id
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            request_size = int(content_length)
+        except ValueError:
+            return _error(request, 400, "INVALID_CONTENT_LENGTH", "The request content length is invalid.")
+        if request_size > MAX_REQUEST_BODY_BYTES:
+            return _error(request, 413, "PAYLOAD_TOO_LARGE", "Request bodies must be 1 MiB or smaller.")
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(self), camera=(), microphone=()")
+    if request.url.path.startswith("/api/v2/expert/"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Vary"] = "Cookie"
     return response
 
 
@@ -66,8 +87,13 @@ async def validation_error(request: Request, exc: RequestValidationError):
 
 @app.exception_handler(HTTPException)
 async def http_error(request: Request, exc: HTTPException):
-    code = "RESOURCE_NOT_FOUND" if exc.status_code == 404 else "DATA_NOT_AVAILABLE"
-    return _error(request, exc.status_code, code, str(exc.detail))
+    code = {401: "AUTHENTICATION_REQUIRED", 403: "FORBIDDEN", 404: "RESOURCE_NOT_FOUND",
+            429: "RATE_LIMITED",
+            422: "VALIDATION_ERROR", 503: "SERVICE_UNAVAILABLE"}.get(exc.status_code, "REQUEST_REJECTED")
+    response = _error(request, exc.status_code, code, str(exc.detail))
+    for header, value in (exc.headers or {}).items():
+        response.headers[header] = value
+    return response
 
 
 @app.exception_handler(Exception)

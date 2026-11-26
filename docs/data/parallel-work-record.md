@@ -2,8 +2,8 @@
 
 ## 1. Isolation & Workspace Details
 
-- **Original Repository Path**: `C:\Users\HP\Documents\field shift\agrishift-ai`
-- **Parallel Copy Path**: `C:\Users\HP\Documents\field shift\agrishift-step2-data`
+- **Original Repository Path**: `[local path omitted]`
+- **Parallel Copy Path**: `[local path omitted]`
 - **Active Branch**: `hackathon/step-2-data-preparation`
 - **Base Commit**: `0277e349f6ab1ea56df4ef0b5a4257bbcfab5149` (`chore: base project snapshot for parallel data preparation`)
 - **Isolation Rationale**:
@@ -49,11 +49,11 @@
 ## 3. Discovered Dataset Locations
 
 1. **Landsat 8/9 Collection 2 Level-2**:
-   - Location: `C:\Users\HP\Downloads\LC09_L2SP_151043_20250930_20251001_02_T1.tar`
+   - Location: `[local path omitted]`
    - Scene: `LC09_L2SP_151043_20250930_20251001_02_T1` (Landsat 9 C2 L2, Path 151 Row 043, acquired 2025-09-30). Contains SR_B1..B7, ST_B10, QA_PIXEL, MTL metadata.
    - Discrepancy Note: Scene `LC08_L2SP_151043_20250922_20250930_02_T1` was registered in `datasets.csv` as pending download, but is absent locally. The real available bundle is the 2025-09-30 Landsat 9 scene for the same WRS-2 footprint.
 2. **NASA SMAP SPL4SMGP V008**:
-   - Location: `C:\Users\HP\Downloads\smap dataset`
+   - Location: `[local path omitted]`
    - Content: Surface & root-zone soil moisture GeoTIFFs (2026-10-01 to 2026-10-07) and `AgriShift_SMAP_Hyderabad_Test.geojson`.
 3. **NASA GPM IMERG Final Run V07**:
    - Location: `data/raw/gpm-imerg/`
