@@ -98,6 +98,17 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.gz
+backups/
 /data/features/features.json
 /data/layers/*.png
 /.tmp-zip-review/

@@ -4,7 +4,7 @@ $ErrorActionPreference = "SilentlyContinue"
 $desktop = [Environment]::GetFolderPath("Desktop")
 $projectDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 if (-not $projectDir) {
-    $projectDir = "C:\Users\HP\Documents\field shift\agrishift-ai"
+    $projectDir = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 }
 
 $shortcutPath = Join-Path $desktop "AgriShift AI.lnk"
